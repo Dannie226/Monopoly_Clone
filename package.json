@@ -1,0 +1,10 @@
+{
+	"private": true,
+	"dependencies": {
+		"@rollup/plugin-node-resolve": "^13.3.0",
+		"three": "^0.142.0"
+	},
+	"devDependencies": {
+		"@types/three": "^0.141.0"
+	}
+}
