@@ -40,7 +40,7 @@ const pieces = new THREE.Group( );
 
 let tween:TWEEN.Tween<THREE.Vector3>;
 
-loader.load( "../../monopoly/scene.gltf", function( gltf ) {
+loader.load( "../scene.glb", function( gltf ) {
     pieces.add( gltf.scene.getObjectByName( "Top_Hat_09_-_Default_0" ) );
     pieces.add( gltf.scene.getObjectByName( "Iron_09_-_Default_0" ) );
     pieces.add( gltf.scene.getObjectByName( "Wheel_Barrow_09_-_Default_0" ) );

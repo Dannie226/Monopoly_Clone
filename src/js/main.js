@@ -20,7 +20,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const loader = new GLTFLoader();
 const pieces = new THREE.Group();
 let tween;
-loader.load("../../monopoly/scene.gltf", function (gltf) {
+loader.load("../scene.glb", function (gltf) {
     pieces.add(gltf.scene.getObjectByName("Top_Hat_09_-_Default_0"));
     pieces.add(gltf.scene.getObjectByName("Iron_09_-_Default_0"));
     pieces.add(gltf.scene.getObjectByName("Wheel_Barrow_09_-_Default_0"));
