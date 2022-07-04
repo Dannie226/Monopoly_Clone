@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { A_BUTTON, B_BUTTON, X_BUTTON } from "./Buttons";
 import { Player } from "./Player";
 import { Tile } from "./Tile";
 
@@ -9,6 +10,7 @@ export class Property implements Tile {
     numHouses:number = 0;
     houseMortgage:number;
     rent:number;
+    mortaged:boolean = false;
     owner:Player;
     constructor(cost:number, rent:number){
         this.type = "property";
@@ -21,7 +23,7 @@ export class Property implements Tile {
         const scope = this;
         if(!this.owner){
             if(player.money >= this.cost){
-                player.awaitButtonPress([0, 1]).then(button => {
+                player.awaitButtonPress([B_BUTTON, A_BUTTON]).then(button => {
                     if(button == 1){
                         player.money -= scope.cost;
                         scope.owner = player;
@@ -31,7 +33,13 @@ export class Property implements Tile {
                 });
             }
         }else if(this.owner !== player){
-            
+            if(this.owner.inJail) return;
+            this.owner.awaitButtonPressFor([X_BUTTON], 20000).then(() => {
+                player.money -= scope.rent;
+                scope.owner.money += scope.rent;
+            }).catch(() => {
+                console.log(scope.owner.name + " Forgot to collect on their rent");
+            });
         }
     }
 }
