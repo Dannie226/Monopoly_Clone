@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import { Player } from "./Player";
 import { Tile } from "./Tile";
 
