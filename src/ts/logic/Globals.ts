@@ -1,11 +1,13 @@
-import { Player } from "./Player";
+import {
+    Player
+} from "./Player";
 
 export class Globals {
-    private constructor(){
+    private constructor( ) {
         throw "Cannot create a Globals instance";
     }
 
-    public static players:Player[] = [];
+    public static players: Player[ ] = [ ];
 
-    public static camera:THREE.Camera;
+    public static camera: THREE.Camera;
 }

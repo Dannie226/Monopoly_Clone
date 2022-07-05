@@ -42812,7 +42812,7 @@
     TWEEN.removeAll.bind( TWEEN );
     TWEEN.add.bind( TWEEN );
     TWEEN.remove.bind( TWEEN );
-    TWEEN.update.bind( TWEEN );
+    var update = TWEEN.update.bind( TWEEN );
 
     /**
      * dat-gui JavaScript Controller Library
@@ -45389,34 +45389,126 @@
     }
     var GUI$1 = GUI;
 
-    const {
-        innerWidth: i,
-        innerHeight: s
-    } = window, d = new WebGLRenderer, l = ( d.setSize( i, s ), d.setClearColor( 12571109 ), document.body.appendChild( d.domElement ), new Scene ), m = new PerspectiveCamera( 75, i / s, 100, 3e3 ), c = ( m.position.y = 1e3, m.position.x = 2e3, new DirectionalLight ), w = ( l.add( c ), new OrbitControls( m, d.domElement ) ), p = new PMREMGenerator( d ), _ = new GLTFLoader, u = new Group$1;
-    new GUI$1;
-    const f = new CatmullRomCurve3( [ new Vector3( 600, 0, -625 ), new Vector3( 625, 0, -600 ), new Vector3( 625, 0, 600 ), new Vector3( 600, 0, 625 ), new Vector3( -600, 0, 625 ), new Vector3( -625, 0, 600 ), new Vector3( -625, 0, -600 ), new Vector3( -600, 0, -625 ) ], !0 ),
-        g = new LineSegments( ( new BufferGeometry ).setFromPoints( f.getPoints( 250 ) ), new LineBasicMaterial( {
-            color: "red"
-        } ) );
-    l.add( g );
-    let b;
-    _.load( "../scene.glb", function( e ) {
-        for ( const t of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
-            const o = e.scene.getObjectByName( t );
-            o.geometry.rotateX( -Math.PI / 2 ), o.geometry.rotateY( Math.PI / 2 ), u.add( o );
+    //go = 0, mediteranean = .0333, CC1 = .0570, baltic = 0.0810, income = .1046, RR = 0.1280, oriental = 0.153, Chance1 = .1767, vermont = .2010, connecticut = .2245
+    //jail = .255, charles = .2830, eclec = .3070, states = .3300, virginia = .3550, PR = .38, james = .403, CC2 = .426, tennessee = .451, NY = .475
+    //FP = .5, kent = .5333, Chance2 = 0.557, ind = .5815, ill = .6047, BOR = 6290, atlas = .652, vernot = .6765, tears = .7, topiary = .724,
+    //Wee Woo = .754, Ocean = .7820, NC = .8065, CC3 = .831, Penn = .855, SL = .8795, Chance3 = .903, trees = .9265, marriage = .9505, planks = .975
+    const tilePositions = [
+        0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
+        .5000, .5333, .5570, .5815, .6047, .6290, .6520, .6765, .7000, .7240, .7540, .7820, .8065, .8310, .8550, .8795, .9030, .9265, .9505, .9750
+    ];
+    const curve = new CatmullRomCurve3( [
+        new Vector3( 625, 0, 600 ),
+        new Vector3( 600, 0, 625 ),
+        new Vector3( -600, 0, 625 ),
+        new Vector3( -625, 0, 600 ),
+        new Vector3( -625, 0, -600 ),
+        new Vector3( -600, 0, -625 ),
+        new Vector3( 600, 0, -625 ),
+        new Vector3( 625, 0, -600 )
+    ], true );
+    const tar = new Vector3( );
+    class Player {
+        constructor( gamepad, name, token ) {
+            this.money = 1500;
+            this.propertyCount = 0;
+            this.properties = [ ];
+            this.inJail = false;
+            this.chanceCard = null;
+            this.communityChestCard = null;
+            this.currentPos = 0;
+            this.statsPanel = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" );
+            this.gamepad = gamepad;
+            this.name = name;
+            this.statsPanel.className = "stats";
+            this.token = token;
         }
-        w.enabled = !1, m.position.set( 100, 200, 0 ), m.lookAt( 0, 0, 0 ), u.children[ 1 ].add( m ), b = new Tween( u.children[ 0 ].position ).to( {
-            x: 625
-        }, 15e3 ).easing( Easing.Quintic.InOut ).start( ), u.add( e.scene.getObjectByName( "Board_01_-_Default_0" ) ), u.children[ 4 ].geometry.rotateX( -Math.PI / 2 ), u.children[ 4 ].position.z = -5, l.add( u );
-    } );
-    const L = new RGBELoader,
-        G = ( L.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
-            l.environment = p.fromEquirectangular( e ).texture;
-        } ), new Vector3 );
-
-    function P( e ) {
-        b && ( f.getPointAt( e / 15e3 % 1, u.children[ 1 ].position ), f.getPointAt( ( e / 15e3 + .01 ) % 1, G ), u.children[ 1 ].lookAt( G ) ), d.render( l, m ), requestAnimationFrame( P );
+        awaitButtonPress( allowedButtons ) {
+            const scope = this;
+            const p = new Promise( ( resolve, reject ) => {
+                const int = setInterval( ( ) => {
+                    for ( let i = 0; i < allowedButtons.length; i++ ) {
+                        if ( scope.gamepad.buttons[ allowedButtons[ i ] ].pressed ) {
+                            clearInterval( int );
+                            resolve( allowedButtons[ i ] );
+                        }
+                    }
+                }, 1 );
+            } );
+            return p;
+        }
+        awaitButtonPressFor( allowedButtons, timeoutMs ) {
+            const scope = this;
+            const p = new Promise( ( resolve, reject ) => {
+                const int = setInterval( ( ) => {
+                    for ( let i = 0; i < allowedButtons.length; i++ ) {
+                        if ( scope.gamepad.buttons[ allowedButtons[ i ] ].pressed ) {
+                            clearInterval( int );
+                            clearTimeout( t );
+                            resolve( allowedButtons[ i ] );
+                        }
+                    }
+                }, 1 );
+                const t = setTimeout( ( ) => {
+                    clearInterval( int );
+                    clearTimeout( t );
+                    reject( "Took Too long to collect rent" );
+                }, timeoutMs );
+            } );
+            return p;
+        }
+        updateStats( ) {}
+        hideStats( ) {}
+        showStats( ) {}
+        goToPosition( position ) {
+            const currentT = tilePositions[ this.currentPos ];
+            let intT = tilePositions[ position ];
+            const scope = this;
+            if ( intT < currentT )
+                intT++;
+            new Tween( {
+                a: currentT
+            } ).to( {
+                a: intT
+            }, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1000 ).onUpdate( obj => {
+                curve.getPointAt( obj.a % 1, scope.token.position );
+                curve.getPointAt( ( obj.a + 0.01 ) % 1, tar );
+                scope.token.lookAt( tar );
+            } ).onComplete( ( ) => {
+                scope.currentPos = position;
+            } ).start( );
+        }
+        moveForward( spaces ) {
+            this.goToPosition( this.currentPos + spaces );
+        }
+        moveBackward( spaces ) {
+            this.goToPosition( this.currentPos - spaces );
+        }
     }
-    P( 0 );
+
+    const {
+        innerWidth: s,
+        innerHeight: m
+    } = window, l = new WebGLRenderer, d = ( l.setSize( s, m ), l.setClearColor( 12571109 ), document.body.appendChild( l.domElement ), new Scene ), _ = new PerspectiveCamera( 75, s / m, 100, 3e3 ), c = ( _.position.y = 1e3, _.position.x = 2e3, new DirectionalLight );
+    ( d.add( c ), new OrbitControls( _, l.domElement ) );
+    const u = new PMREMGenerator( l ),
+        h = new GLTFLoader,
+        f = new Group$1;
+    new GUI$1;
+    const w = ( h.load( "../scene.glb", function( e ) {
+        for ( const o of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
+            const r = e.scene.getObjectByName( o );
+            r.geometry.rotateX( -Math.PI / 2 ), r.geometry.rotateY( Math.PI / 2 ), f.add( r );
+        }
+        const t = new Player( null, "Daniel", f.children[ 1 ] );
+        t.goToPosition( 11 ), setTimeout( t.goToPosition.bind( t, 10 ), 5e3 ), f.add( e.scene.getObjectByName( "Board_01_-_Default_0" ) ), f.children[ 4 ].geometry.rotateX( -Math.PI / 2 ), f.children[ 4 ].position.z = -5, d.add( f );
+    } ), new RGBELoader );
+
+    function b( ) {
+        update( ), l.render( d, _ ), requestAnimationFrame( b );
+    }
+    w.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
+        d.environment = u.fromEquirectangular( e ).texture;
+    } ), b( );
 
 } )( );

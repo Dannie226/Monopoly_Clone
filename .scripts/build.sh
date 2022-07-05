@@ -19,7 +19,7 @@ export PATH=/usr/local/lib/nodejs/node-v16.15.1-linux-armv7l/bin:$PATH
 
 start_time=$(date +%s.%3N)
 
-run_command "js-beautify -f ./src/ts/**.ts --config ./.configs/beautify.config.json -r -q" "Beautify TS" 33
+run_command "js-beautify -f ./src/ts/**.ts ./src/ts/**/**.ts --config ./.configs/beautify.config.json -r -q" "Beautify TS" 33
 
 run_command "tsc -p ./.configs/tsconfig.json" "Transpilation" 36
 

@@ -1,7 +1,9 @@
-import { Player } from "./Player";
+import {
+    Player
+} from "./Player";
 
 export interface Tile {
-    type:"property" | "chance" | "community chest" | "special";
+    type: "property" | "chance" | "community chest" | "special";
 
-    onLand(player:Player):void;
+    onLand( player: Player ): void;
 }
