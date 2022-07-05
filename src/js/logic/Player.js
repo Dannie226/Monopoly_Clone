@@ -96,54 +96,57 @@ export class Player {
             if (!this.inJail)
                 this.money += 200;
         }
-        v1.set(200, 100, 0);
-        this.token.localToWorld(v1);
-        v0.copy(camera.position);
-        camera.lookAt(0, 0, 0);
-        q0.copy(camera.quaternion);
-        camera.position.copy(v1);
-        camera.lookAt(this.token.position);
-        q1.copy(camera.quaternion);
-        fromIObj.a = 0;
-        toIObj.a = 1;
-        const camToTokenTween = new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
-            camera.position.lerpVectors(v0, v1, a);
-            camera.quaternion.slerpQuaternions(q0, q1, a);
-        }).onComplete(() => {
-            fromIObj.a = currentT;
-            toIObj.a = intT;
-            scope.token.add(camera);
-            camera.position.set(200, 100, 0);
-            camera.lookAt(scope.token.position);
-            tokenToSpaceTween.start();
-        }).easing(Easing.Quadratic.InOut);
-        const tokenToSpaceTween = new Tween(fromIObj).to(toIObj, Math.log2(Number(intT > 1) * 40 + position - scope.currentPos) * 1500).onUpdate(({ a }) => {
-            curve.getPointAt(a % 1, scope.token.position);
-            curve.getPointAt((a + 0.01) % 1, v0);
-            scope.token.lookAt(v0);
-        }).onComplete(() => {
-            scope.currentPos = position;
-            scope.token.remove(camera);
-            scope.token.localToWorld(camera.position);
+        const p = new Promise((resolve) => {
+            v1.set(200, 100, 0);
+            this.token.localToWorld(v1);
             v0.copy(camera.position);
-            camera.lookAt(scope.token.position);
+            camera.lookAt(0, 0, 0);
             q0.copy(camera.quaternion);
-            v1.set(0, 2000, 0);
-            q1.set(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
+            camera.position.copy(v1);
+            camera.lookAt(this.token.position);
+            q1.copy(camera.quaternion);
             fromIObj.a = 0;
             toIObj.a = 1;
-            camToOrigTween.start();
-        }).delay(500).easing(Easing.Sinusoidal.InOut);
-        const camToOrigTween = new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
-            camera.position.lerpVectors(v0, v1, a);
-            camera.quaternion.slerpQuaternions(q0, q1, a);
-        }).delay(500).easing(Easing.Quadratic.InOut);
-        camToTokenTween.start();
+            const camToTokenTween = new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
+                camera.position.lerpVectors(v0, v1, a);
+                camera.quaternion.slerpQuaternions(q0, q1, a);
+            }).onComplete(() => {
+                fromIObj.a = currentT;
+                toIObj.a = intT;
+                scope.token.add(camera);
+                camera.position.set(200, 100, 0);
+                camera.lookAt(scope.token.position);
+                tokenToSpaceTween.start();
+            }).easing(Easing.Quadratic.InOut);
+            const tokenToSpaceTween = new Tween(fromIObj).to(toIObj, Math.log2(Number(intT > 1) * 40 + position - scope.currentPos) * 1500).onUpdate(({ a }) => {
+                curve.getPointAt(a % 1, scope.token.position);
+                curve.getPointAt((a + 0.01) % 1, v0);
+                scope.token.lookAt(v0);
+            }).onComplete(() => {
+                scope.currentPos = position;
+                scope.token.remove(camera);
+                scope.token.localToWorld(camera.position);
+                v0.copy(camera.position);
+                camera.lookAt(scope.token.position);
+                q0.copy(camera.quaternion);
+                v1.set(0, 2000, 0);
+                q1.set(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
+                fromIObj.a = 0;
+                toIObj.a = 1;
+                camToOrigTween.start();
+            }).delay(500).easing(Easing.Sinusoidal.InOut);
+            const camToOrigTween = new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
+                camera.position.lerpVectors(v0, v1, a);
+                camera.quaternion.slerpQuaternions(q0, q1, a);
+            }).delay(500).easing(Easing.Quadratic.InOut).onComplete(() => { resolve(scope); });
+            camToTokenTween.start();
+        });
+        return p;
     }
     moveForward(spaces) {
-        this.goToPosition(this.currentPos + spaces);
+        return this.goToPosition(this.currentPos + spaces);
     }
     moveBackward(spaces) {
-        this.goToPosition(this.currentPos - spaces);
+        return this.goToPosition(this.currentPos - spaces);
     }
 }

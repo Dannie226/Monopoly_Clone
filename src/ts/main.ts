@@ -47,7 +47,7 @@ const pieces = new THREE.Group( );
 //eslint-disable-next-line no-unused-vars
 const gui = new GUI( );
 
-loader.load( "../scene.glb", function( gltf ) {
+loader.load( "../scene.glb", ( gltf ) => {
     const names = [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ]
     for ( const name of names ) {
         const o = gltf.scene.getObjectByName( name );
@@ -60,10 +60,18 @@ loader.load( "../scene.glb", function( gltf ) {
     camera.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
 
     const p = new Player( null, "Daniel", pieces.children[ 1 ] as THREE.Mesh );
-
-    p.goToPosition( 11 );
-
-    setTimeout( p.goToPosition.bind( p, 10 ), 15000 );
+    const h = new Player( null, "Nate", pieces.children[0] as THREE.Mesh);
+    p.goToPosition( 11 ).then(() => {
+        setTimeout(() => {
+            p.goToPosition(10).then(() => {
+                p.moveBackward(3).then(() => {
+                    p.moveForward(8).then(() => {
+                        h.goToPosition(25);
+                    });
+                });
+            });
+        }, 3000);
+    })
 
     pieces.add( gltf.scene.getObjectByName( "Board_01_-_Default_0" ) );
     ( pieces.children[ 4 ] as THREE.Mesh ).geometry.rotateX( -Math.PI / 2 );
