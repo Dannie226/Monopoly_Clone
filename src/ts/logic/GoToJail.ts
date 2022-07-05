@@ -13,6 +13,6 @@ export class GoToJail implements Tile {
         if ( this.jailed ) this.jailed.inJail = false;
         this.jailed = player;
         player.inJail = true;
-        player.goToPosition(10);
+        player.goToPosition( 10 );
     }
 }

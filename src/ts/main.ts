@@ -15,7 +15,9 @@ import {
 import {
     Player
 } from "./logic/Player";
-import { Globals } from "./logic/Globals";
+import {
+    Globals
+} from "./logic/Globals";
 const {
     innerWidth: width,
     innerHeight: height
@@ -36,9 +38,6 @@ Globals.camera = camera;
 const dLight = new THREE.DirectionalLight( );
 scene.add( dLight );
 
-//eslint-disable-next-line no-unused-vars
-const controls = new OrbitControls( camera, renderer.domElement );
-
 const pmrem = new THREE.PMREMGenerator( renderer );
 
 const loader = new GLTFLoader( );
@@ -56,6 +55,9 @@ loader.load( "../scene.glb", function( gltf ) {
         ( o as THREE.Mesh ).geometry.rotateY( Math.PI / 2 );
         pieces.add( o );
     }
+
+    camera.position.set( 0, 2000, 0 );
+    camera.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
 
     const p = new Player( null, "Daniel", pieces.children[ 1 ] as THREE.Mesh );
 

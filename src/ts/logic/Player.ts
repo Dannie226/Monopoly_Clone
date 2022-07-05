@@ -5,7 +5,9 @@ import {
 import {
     Card
 } from "./Card";
-import { Globals } from "./Globals";
+import {
+    Globals
+} from "./Globals";
 import {
     Property
 } from "./Property";
@@ -31,9 +33,16 @@ const curve = new THREE.CatmullRomCurve3( [
     new THREE.Vector3( 625, 0, -600 )
 ], true );
 
-
-const loc = new THREE.Vector3();
-const tar = new THREE.Vector3( );
+const v0 = new THREE.Vector3( );
+const v1 = new THREE.Vector3( );
+const q0 = new THREE.Quaternion( );
+const q1 = new THREE.Quaternion( );
+const fromIObj = {
+    a: 0
+};
+const toIObj = {
+    a: 1
+}
 export class Player {
     public gamepad: Gamepad;
     public token: THREE.Mesh;
@@ -52,9 +61,9 @@ export class Player {
         this.name = name;
         this.statsPanel.className = "stats";
         this.token = token;
-        curve.getPointAt(0, this.token.position);
-        curve.getPointAt(0.01, tar);
-        this.token.lookAt(tar);
+        curve.getPointAt( 0, this.token.position );
+        curve.getPointAt( 0.01, v0 );
+        this.token.lookAt( v0 );
     }
 
     awaitButtonPress( allowedButtons: number[ ] ): Promise < number > {
@@ -109,39 +118,74 @@ export class Player {
     goToPosition( position: number ) {
         const currentT = tilePositions[ this.currentPos ];
         let intT = tilePositions[ position ];
-        const scope = this;
+        const scope = this,
+            camera = Globals.camera;
 
         if ( intT < currentT ) {
             intT++;
-            if(!this.inJail) this.money += 200;
+            if ( !this.inJail ) this.money += 200;
         }
-        loc.set(200, 100, 0);
+        v1.set( 200, 100, 0 );
+        this.token.localToWorld( v1 );
 
-        this.token.localToWorld(loc);
-        new Tween(Globals.camera.position).to(loc, 3000).start().onUpdate(() => {
-            Globals.camera.lookAt(scope.token.position);
-        }).onComplete(() => {
-            scope.token.add(Globals.camera);
-            Globals.camera.position.set(200, 100, 0);
-            Globals.camera.lookAt(scope.token.position);
-            new Tween( {
-                a: currentT
-            } ).to( {
-                a: intT
-            }, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1500 ).onUpdate( obj => {
-                curve.getPointAt( obj.a % 1, scope.token.position );
-                curve.getPointAt( ( obj.a + 0.01 ) % 1, tar );
-                scope.token.lookAt( tar );
-            } ).onComplete( ( ) => {
-                scope.currentPos = position;
-                scope.token.remove(Globals.camera);
-                scope.token.localToWorld(Globals.camera.position);
-                loc.set(0, 2000, 0);
-                new Tween(Globals.camera.position).to(loc, 3000).start().onUpdate(() => {
-                    Globals.camera.lookAt(0, 0, 0);
-                });
-            } ).start( );
-        })
+        v0.copy( camera.position );
+        camera.lookAt( 0, 0, 0 );
+        q0.copy( camera.quaternion );
+
+        camera.position.copy( v1 );
+        camera.lookAt( this.token.position );
+        q1.copy( camera.quaternion );
+
+        fromIObj.a = 0;
+        toIObj.a = 1;
+        const camToTokenTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+            a
+        } ) => {
+            camera.position.lerpVectors( v0, v1, a );
+            camera.quaternion.slerpQuaternions( q0, q1, a );
+        } ).onComplete( ( ) => {
+            fromIObj.a = currentT;
+            toIObj.a = intT;
+
+            scope.token.add( camera );
+            camera.position.set( 200, 100, 0 );
+            camera.lookAt( scope.token.position );
+
+            tokenToSpaceTween.start( );
+        } );
+
+        const tokenToSpaceTween = new Tween( fromIObj ).to( toIObj, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1500 ).onUpdate( ( {
+            a
+        } ) => {
+            curve.getPointAt( a % 1, scope.token.position );
+            curve.getPointAt( ( a + 0.01 ) % 1, v0 );
+            scope.token.lookAt( v0 );
+        } ).onComplete( ( ) => {
+            scope.currentPos = position;
+
+            scope.token.remove( camera );
+
+            scope.token.localToWorld( camera.position );
+            v0.copy( camera.position );
+            camera.lookAt( scope.token.position );
+            q0.copy( camera.quaternion );
+
+            v1.set( 0, 2000, 0 );
+            q1.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
+
+            fromIObj.a = 0;
+            toIObj.a = 1;
+            camToOrigTween.start( );
+        } );
+
+        const camToOrigTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+            a
+        } ) => {
+            camera.position.lerpVectors( v0, v1, a );
+            camera.quaternion.slerpQuaternions( q0, q1, a );
+        } );
+
+        camToTokenTween.start( );
     }
 
     moveForward( spaces: number ) {
