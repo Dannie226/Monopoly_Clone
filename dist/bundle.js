@@ -44178,7 +44178,7 @@
                 camera.position.set( 200, 100, 0 );
                 camera.lookAt( scope.token.position );
                 tokenToSpaceTween.start( );
-            } );
+            } ).easing( Easing.Quadratic.InOut );
             const tokenToSpaceTween = new Tween( fromIObj ).to( toIObj, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1500 ).onUpdate( ( {
                 a
             } ) => {
@@ -44197,13 +44197,13 @@
                 fromIObj.a = 0;
                 toIObj.a = 1;
                 camToOrigTween.start( );
-            } );
+            } ).delay( 500 ).easing( Easing.Sinusoidal.InOut );
             const camToOrigTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
                 a
             } ) => {
                 camera.position.lerpVectors( v0, v1, a );
                 camera.quaternion.slerpQuaternions( q0, q1, a );
-            } );
+            } ).delay( 500 ).easing( Easing.Quadratic.InOut );
             camToTokenTween.start( );
         }
         moveForward( spaces ) {

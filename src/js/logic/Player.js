@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Tween } from "../../libs/tween";
+import { Easing, Tween } from "../../libs/tween";
 import { Globals } from "./Globals";
 //go = 0, mediteranean = .0333, CC1 = .0570, baltic = 0.0810, income = .1046, RR = 0.1280, oriental = 0.153, Chance1 = .1767, vermont = .2010, connecticut = .2245
 //jail = .255, charles = .2830, eclec = .3070, states = .3300, virginia = .3550, PR = .38, james = .403, CC2 = .426, tennessee = .451, NY = .475
@@ -116,7 +116,7 @@ export class Player {
             camera.position.set(200, 100, 0);
             camera.lookAt(scope.token.position);
             tokenToSpaceTween.start();
-        });
+        }).easing(Easing.Quadratic.InOut);
         const tokenToSpaceTween = new Tween(fromIObj).to(toIObj, Math.log2(Number(intT > 1) * 40 + position - scope.currentPos) * 1500).onUpdate(({ a }) => {
             curve.getPointAt(a % 1, scope.token.position);
             curve.getPointAt((a + 0.01) % 1, v0);
@@ -133,11 +133,11 @@ export class Player {
             fromIObj.a = 0;
             toIObj.a = 1;
             camToOrigTween.start();
-        });
+        }).delay(500).easing(Easing.Sinusoidal.InOut);
         const camToOrigTween = new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
             camera.position.lerpVectors(v0, v1, a);
             camera.quaternion.slerpQuaternions(q0, q1, a);
-        });
+        }).delay(500).easing(Easing.Quadratic.InOut);
         camToTokenTween.start();
     }
     moveForward(spaces) {
