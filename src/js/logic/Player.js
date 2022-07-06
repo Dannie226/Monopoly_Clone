@@ -51,32 +51,32 @@ export class Player {
         const scope = this;
         const p = new Promise((resolve, reject) => {
             const int = setInterval(() => {
-                for (let i = 0; i < allowedButtons.length; i++) {
-                    if (scope.gamepad.buttons[allowedButtons[i]].pressed) {
+                for (const button of allowedButtons) {
+                    if (scope.gamepad.buttons[button].pressed) {
                         clearInterval(int);
-                        resolve(allowedButtons[i]);
+                        resolve(button);
                     }
                 }
-            }, 1);
+            }, 17);
         });
         return p;
     }
     awaitButtonPressFor(allowedButtons, timeoutMs) {
         const scope = this;
         const p = new Promise((resolve, reject) => {
-            const int = setInterval(() => {
-                for (let i = 0; i < allowedButtons.length; i++) {
-                    if (scope.gamepad.buttons[allowedButtons[i]].pressed) {
-                        clearInterval(int);
+            const i = setInterval(() => {
+                for (const button of allowedButtons) {
+                    if (scope.gamepad.buttons[button].pressed) {
+                        clearInterval(i);
                         clearTimeout(t);
-                        resolve(allowedButtons[i]);
+                        resolve(button);
                     }
                 }
-            }, 1);
+            }, 17);
             const t = setTimeout(() => {
-                clearInterval(int);
+                clearInterval(i);
                 clearTimeout(t);
-                reject("Took Too long to collect rent");
+                reject("Took Too long to press button");
             }, timeoutMs);
         });
         return p;
@@ -129,7 +129,7 @@ export class Player {
                 v0.copy(camera.position);
                 camera.lookAt(scope.token.position);
                 q0.copy(camera.quaternion);
-                v1.set(0, 2000, 0);
+                v1.set(0, 975, 0);
                 q1.set(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
                 fromIObj.a = 0;
                 toIObj.a = 1;

@@ -5,6 +5,7 @@ import * as TWEEN from "../libs/tween";
 import { GUI } from "dat.gui";
 import { Player } from "./logic/Player";
 import { Globals } from "./logic/Globals";
+import { CommunityChest } from "./logic/CommunityChest";
 const { innerWidth: width, innerHeight: height } = window;
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
@@ -30,21 +31,23 @@ loader.load("../scene.glb", (gltf) => {
         o.geometry.rotateY(Math.PI / 2);
         pieces.add(o);
     }
-    camera.position.set(0, 2000, 0);
+    camera.position.set(0, 975, 0);
     camera.quaternion.set(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
     const p = new Player(null, "Daniel", pieces.children[1]);
     const h = new Player(null, "Nate", pieces.children[0]);
-    p.goToPosition(11).then(() => {
-        setTimeout(() => {
-            p.goToPosition(10).then(() => {
-                p.moveBackward(3).then(() => {
-                    p.moveForward(8).then(() => {
-                        h.goToPosition(25);
-                    });
-                });
-            });
-        }, 3000);
-    });
+    // p.goToPosition( 11 ).then(() => {
+    //     setTimeout(() => {
+    //         p.goToPosition(10).then(() => {
+    //             p.moveBackward(3).then(() => {
+    //                 p.moveForward(8).then(() => {
+    //                     h.goToPosition(25);
+    //                 });
+    //             });
+    //         });
+    //     }, 3000);
+    // })
+    const c = new CommunityChest();
+    c.onLand(p);
     pieces.add(gltf.scene.getObjectByName("Board_01_-_Default_0"));
     pieces.children[4].geometry.rotateX(-Math.PI / 2);
     pieces.children[4].position.z = -5;

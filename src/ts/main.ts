@@ -18,6 +18,8 @@ import {
 import {
     Globals
 } from "./logic/Globals";
+import { ChanceTile } from "./logic/ChanceTile";
+import { CommunityChest } from "./logic/CommunityChest";
 const {
     innerWidth: width,
     innerHeight: height
@@ -56,11 +58,12 @@ loader.load( "../scene.glb", ( gltf ) => {
         pieces.add( o );
     }
 
-    camera.position.set( 0, 2000, 0 );
+    camera.position.set( 0, 975, 0 );
     camera.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
 
     const p = new Player( null, "Daniel", pieces.children[ 1 ] as THREE.Mesh );
     const h = new Player( null, "Nate", pieces.children[0] as THREE.Mesh);
+    
     p.goToPosition( 11 ).then(() => {
         setTimeout(() => {
             p.goToPosition(10).then(() => {

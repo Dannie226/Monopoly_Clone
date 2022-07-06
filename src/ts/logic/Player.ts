@@ -71,13 +71,13 @@ export class Player {
         const scope = this;
         const p = new Promise < number > ( ( resolve, reject ) => {
             const int = setInterval( ( ) => {
-                for ( let i = 0; i < allowedButtons.length; i++ ) {
-                    if ( scope.gamepad.buttons[ allowedButtons[ i ] ].pressed ) {
+                for ( const button of allowedButtons) {
+                    if ( scope.gamepad.buttons[button].pressed ) {
                         clearInterval( int );
-                        resolve( allowedButtons[ i ] );
+                        resolve( button );
                     }
                 }
-            }, 1 );
+            }, 17 );
         } );
         return p;
     }
@@ -85,18 +85,18 @@ export class Player {
     awaitButtonPressFor( allowedButtons: number[ ], timeoutMs: number ): Promise < number > {
         const scope = this;
         const p = new Promise < number > ( ( resolve, reject ) => {
-            const int = setInterval( ( ) => {
-                for ( let i = 0; i < allowedButtons.length; i++ ) {
-                    if ( scope.gamepad.buttons[ allowedButtons[ i ] ].pressed ) {
-                        clearInterval( int );
+            const i = setInterval( ( ) => {
+                for ( const button of allowedButtons ) {
+                    if ( scope.gamepad.buttons[ button ].pressed ) {
+                        clearInterval( i );
                         clearTimeout( t );
-                        resolve( allowedButtons[ i ] );
+                        resolve( button );
                     }
                 }
-            }, 1 );
+            }, 17 );
 
             const t = setTimeout( ( ) => {
-                clearInterval( int );
+                clearInterval( i );
                 clearTimeout( t );
                 reject( "Took Too long to press button" );
             }, timeoutMs );
@@ -171,7 +171,7 @@ export class Player {
                 camera.lookAt( scope.token.position );
                 q0.copy( camera.quaternion );
     
-                v1.set( 0, 2000, 0 );
+                v1.set( 0, 975, 0 );
                 q1.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
     
                 fromIObj.a = 0;
