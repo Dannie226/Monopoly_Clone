@@ -1,0 +1,8 @@
+The monopoly board model is where all the tokens, and board came from. The Dice included in this gltf were not accurate to how real dice are made.
+Because of this, I am using a secondary dice model that is accurate (opposite sides add up to 7).
+
+Monopoly board model:
+"Monopoly" (https://skfb.ly/6COZv) by Anthony Yanez is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+Die Model:
+"Dice" (https://sketchfab.com/3d-models/dice-f5df7799760c4452addb66854facffd7) by Etherlyte (https://sketchfab.com/etherlyte) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

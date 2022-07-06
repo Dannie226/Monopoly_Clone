@@ -25,5 +25,8 @@
             "error",
             "always"
         ]
+    },
+    "globals":{
+        "Ammo":"readonly"
     }
 }

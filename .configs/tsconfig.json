@@ -1,6 +1,7 @@
 {
     "include": ["../src/ts/*.ts"],
     "compilerOptions": {
+        "types":["../node_modules/ammojs-typed"],
         "alwaysStrict": true,
         "noFallthroughCasesInSwitch": true,
         "outDir": "../src/js",

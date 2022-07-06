@@ -24,6 +24,7 @@ import {
 import {
     CommunityChest
 } from "./logic/CommunityChest";
+import { Dice } from "./logic/Dice";
 const {
     innerWidth: width,
     innerHeight: height
@@ -52,8 +53,7 @@ const pieces = new THREE.Group( );
 
 //eslint-disable-next-line no-unused-vars
 const gui = new GUI( );
-
-loader.load( "../scene.glb", ( gltf ) => {
+loader.load( "../board.glb", ( gltf ) => {
     const names = [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ]
     for ( const name of names ) {
         const o = gltf.scene.getObjectByName( name );
