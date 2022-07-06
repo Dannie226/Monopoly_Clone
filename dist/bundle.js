@@ -44056,12 +44056,449 @@
     }
     var GUI$1 = GUI;
 
+    class Card {
+        constructor( onUse ) {
+            this.use = onUse;
+        }
+        onUse( user ) {
+            this.use( user );
+        }
+        static initDOM( ) {
+            document.body.appendChild( this.card );
+            this.card.style.padding = "5px";
+            this.card.style.fontSize = "25px";
+            this.card.style.position = "absolute";
+            this.card.style.backgroundColor = "white";
+            this.card.style.left = "50%";
+            this.card.style.display = "none";
+            this.added = true;
+        }
+    }
+    Card.card = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" );
+    Card.added = false;
+
+    const cards$1 = {
+        advil: {
+            card: "Advance to Illinois Ave.",
+            function( player ) {
+                player.goToPosition( 24 );
+            },
+            immediate: true
+        },
+        advut: {
+            card: "Advance to nearest utility.\nIf unowned, you may buy from bank.\n If owned, reroll dice and pay owner 10 times the rolled amount.",
+            function( player ) {
+                //set player position to nearest utility based on current position
+            },
+            immediate: true
+        },
+        chair: {
+            card: "You have been elected chairman of the board. Pay each player $50",
+            function( user ) {
+                const players = Globals.players;
+                user.money -= 50 * players.length - 1;
+                for ( const player of players ) {
+                    if ( player !== user )
+                        player.money += 50;
+                }
+            },
+            immediate: true
+        },
+        advgo: {
+            card: "Advance to go",
+            function( player ) {
+                player.goToPosition( 0 );
+            },
+            immediate: true
+        },
+        advrr: {
+            card: "Take a ride on the reading.\n If you pass go, collect $200",
+            function( player ) {
+                player.goToPosition( 5 );
+            },
+            immediate: true
+        },
+        loan: {
+            card: "Your building and loan matures.\n Collect $150",
+            function( player ) {
+                player.money += 150;
+            },
+            immediate: true
+        },
+        bank: {
+            card: "Bank pays you dividend of $50",
+            function( player ) {
+                player.money += 50;
+            },
+            immediate: true
+        },
+        advbw: {
+            card: "Take a walk on the board walk.\nAdvance token to board walk.",
+            function( player ) {
+                player.goToPosition( 39 );
+            },
+            immediate: true
+        },
+        back: {
+            card: "Go back 3 spaces",
+            function( player ) {
+                player.inJail = true;
+                player.moveBackward( 3 ).then( ( ) => {
+                    player.inJail = false;
+                } );
+            },
+            immediate: true
+        },
+        houses: {
+            card: "Housing market crashes and burns.\n Lose $250",
+            function( player ) {
+                player.money -= 250;
+            },
+            immediate: true
+        },
+        advnr: {
+            card: "Advance token to the nearest railroad and pay owner twice the rental to which they are entitled.\nIf railroad is unowned, you may buy it from the bank",
+            function( player ) {},
+            immediate: true
+        },
+        advjl: {
+            card: "Go directly to jail.\n Do not pass go, do not collect $200",
+            function( player ) {
+                player.inJail = true;
+                player.goToPosition( 10 );
+            },
+            immediate: true
+        },
+        advnj: {
+            card: "Get out of jail free",
+            function( player ) {
+                player.inJail = false;
+            },
+            immediate: false
+        },
+        poor: {
+            card: "Pay poor tax of $15",
+            function( player ) {
+                player.money -= 15;
+            },
+            immediate: false
+        },
+        advsc: {
+            card: "Advance to St. Charles Place.\nIf you pass go, collect $200",
+            function( player ) {
+                player.goToPosition( 11 );
+            },
+            immediate: true
+        },
+        advrng: {
+            card: "Go to a random spot on the board. If you pass go, collect $200.",
+            function( player ) {
+                player.goToPosition( Math.random( ) * 40 | 0 );
+            },
+            immediate: true
+        }
+    };
+    class ChanceTile {
+        constructor( ) {
+            this.type = "chance";
+        }
+        onLand( player ) {
+            //choose card
+            const k = Object.keys( cards$1 );
+            const card = cards$1[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
+            const dCard = Card.card;
+            if ( !Card.added )
+                Card.initDOM( );
+            dCard.innerText = card.card;
+            dCard.style.display = "block";
+            dCard.style.bottom = "-50px";
+            dCard.style.transform = "translate(-50%, 0%)";
+            new Tween( {
+                h: -50
+            } ).to( {
+                h: 400
+            }, 4500 ).onUpdate( ( {
+                h
+            } ) => {
+                dCard.style.bottom = h + "px";
+            } ).delay( 2000 ).start( ).onComplete( ( ) => {
+                setTimeout( ( ) => {
+                    dCard.style.display = "none";
+                }, 3000 );
+            } );
+        }
+    }
+
+    const cards = {
+        advnj: {
+            card: "Get out of jail, free.",
+            function( player ) {
+                player.inJail = false;
+            },
+            immediate: false
+        },
+        life: {
+            card: "Life insurance matures.\n Collect $100.",
+            function( player ) {
+                player.money += 100;
+            },
+            immediate: true
+        },
+        stock: {
+            card: "From sale of stock, you get $45.",
+            function( player ) {
+                player.money += 45;
+            },
+            immediate: true
+        },
+        belle: {
+            card: "You lost horribly in a beauty contest.\n Pay $50 for entrance fee.",
+            function( player ) {
+                player.money -= 50;
+            },
+            immediate: true
+        },
+        xmas: {
+            card: "You were found stealing toys from children on X-mas.\n Pay $100 for compensation.",
+            function( player ) {
+                player.money -= 100;
+            },
+            immediate: true
+        },
+        tax: {
+            card: "You were convicted of tax evasion.\n Go to jail, go directly to jail, do not pass go, do not collect $200.",
+            function( player ) {
+                player.inJail = true;
+                player.goToPosition( 10 );
+            },
+            immediate: true
+        },
+        opera: {
+            card: "Grand Opera Opening.\n Collect $50 from every player.",
+            function( player ) {
+                const players = Globals.players;
+                for ( const opp of players ) {
+                    opp.money -= 50;
+                    player.money += 50;
+                }
+            },
+            immediate: true
+        },
+        hosp: {
+            card: "You broke your ankle. Pay hospital bill of $150.",
+            function( player ) {
+                player.money -= 150;
+            },
+            immediate: true
+        },
+        school: {
+            card: "You bought books for a student. Pay $10.",
+            function( player ) {
+                player.money -= 10;
+            },
+            immediate: true
+        },
+        repairs: {
+            card: "Housing market soars.\n Collect $100.",
+            function( player ) {
+                player.money += 100;
+            },
+            immediate: true
+        },
+        bank: {
+            card: "Bank error really in your favor. Collect $350",
+            function( player ) {
+                player.money += 350;
+            },
+            immediate: true
+        },
+        marriage: {
+            card: "You got married and then robbed blind.\n You lose $400",
+            function( player ) {
+                player.money -= 400;
+            },
+            immediate: true
+        },
+        inherit: {
+            card: "You inherit $500",
+            function( player ) {
+                player.money += 500;
+            },
+            immediate: true
+        },
+        advjl: {
+            card: "Go to jail. Go directly to jail.\n Do not pass go, do not collect $200",
+            function( player ) {
+                player.inJail = true;
+                player.goToPosition( 10 );
+            },
+            immediate: true
+        },
+        jackpot: {
+            card: "You got a lottery ticket.\n You have a 1 / 1000 chance that you win $1000, otherwise, you lose $10",
+            function( player ) {
+                player.money += Number( ( Math.random( ) * 1000 | 0 ) == 234 ) * 1000;
+            },
+            immediate: true
+        }
+    };
+    class CommunityChest {
+        constructor( ) {
+            this.type = "community chest";
+        }
+        onLand( player ) {
+            const k = Object.keys( cards );
+            const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
+            const dCard = Card.card;
+            if ( !Card.added )
+                Card.initDOM( );
+            dCard.innerText = card.card;
+            dCard.style.display = "block";
+            dCard.style.bottom = "-50px";
+            dCard.style.transform = "translate(-50%, 0%)";
+            new Tween( {
+                h: -50
+            } ).to( {
+                h: 400
+            }, 4500 ).onUpdate( ( {
+                h
+            } ) => {
+                dCard.style.bottom = h + "px";
+            } ).delay( 2000 ).start( ).onComplete( ( ) => {
+                setTimeout( ( ) => {
+                    dCard.style.display = "none";
+                }, 3000 );
+            } );
+        }
+    }
+
+    class FreeParking {
+        constructor( ) {
+            this.type = "special";
+        }
+        onLand( player ) {}
+    }
+
+    class GoTile {
+        constructor( ) {
+            this.type = "special";
+        }
+        onLand( player ) {
+            player.money += 100;
+        }
+    }
+
+    class GoToJail {
+        constructor( ) {
+            this.type = "special";
+            this.jailed = null;
+        }
+        onLand( player ) {
+            if ( this.jailed )
+                this.jailed.inJail = false;
+            this.jailed = player;
+            player.inJail = true;
+            player.goToPosition( 10 );
+        }
+    }
+
+    const B_BUTTON = 0;
+    const A_BUTTON = 1;
+    const X_BUTTON = 3;
+
+    class Property {
+        constructor( cost, rent ) {
+            this.numHouses = 0;
+            this.mortaged = false;
+            this.type = "property";
+            this.rent = rent;
+            this.cost = cost;
+            this.owner = null;
+        }
+        onLand( player ) {
+            const scope = this;
+            if ( !this.owner ) {
+                if ( player.money >= this.cost ) {
+                    player.awaitButtonPress( [ B_BUTTON, A_BUTTON ] ).then( button => {
+                        if ( button == 1 ) {
+                            player.money -= scope.cost;
+                            scope.owner = player;
+                            player.properties.push( scope );
+                            player.propertyCount++;
+                        }
+                    } );
+                }
+            } else if ( this.owner !== player ) {
+                if ( this.owner.inJail )
+                    return;
+                this.owner.awaitButtonPressFor( [ X_BUTTON ], 20000 ).then( ( ) => {
+                    player.money -= scope.rent;
+                    scope.owner.money += scope.rent;
+                } ).catch( ( ) => {
+                    console.log( scope.owner.name + " Forgot to collect on their rent" );
+                } );
+            }
+        }
+    }
+
+    class TaxTile {
+        constructor( tax ) {
+            this.type = "special";
+            this.tax = tax;
+        }
+        onLand( player ) {
+            player.money -= this.tax;
+        }
+    }
+
     class Globals {
         constructor( ) {
             throw "Cannot create a Globals instance";
         }
     }
     Globals.players = [ ];
+    Globals.tiles = [
+        new GoTile( ),
+        new Property( 60, 4 ),
+        new CommunityChest( ),
+        new Property( 60, 2 ),
+        new TaxTile( 200 ),
+        new Property( 200, 50 ),
+        new Property( 100, 6 ),
+        new ChanceTile( ),
+        new Property( 100, 6 ),
+        new Property( 120, 8 ),
+        new FreeParking( ),
+        new Property( 140, 10 ),
+        new Property( 150, 75 ),
+        new Property( 140, 10 ),
+        new Property( 160, 12 ),
+        new Property( 200, 75 ),
+        new Property( 180, 14 ),
+        new Property( 180, 14 ),
+        new CommunityChest( ),
+        new Property( 100, 16 ),
+        new FreeParking( ),
+        new Property( 220, 18 ),
+        new ChanceTile( ),
+        new Property( 220, 18 ),
+        new Property( 240, 20 ),
+        new Property( 200, 125 ),
+        new Property( 260, 22 ),
+        new Property( 260, 22 ),
+        new Property( 150, 75 ),
+        new Property( 280, 24 ),
+        new GoToJail( ),
+        new Property( 300, 26 ),
+        new Property( 300, 26 ),
+        new CommunityChest( ),
+        new Property( 320, 28 ),
+        new Property( 200, 200 ),
+        new ChanceTile( ),
+        new Property( 350, 35 ),
+        new TaxTile( 75 ),
+        new Property( 400, 50 )
+    ];
 
     //go = 0, mediteranean = .0333, CC1 = .0570, baltic = 0.0810, income = .1046, RR = 0.1280, oriental = 0.153, Chance1 = .1767, vermont = .2010, connecticut = .2245
     //jail = .255, charles = .2830, eclec = .3070, states = .3300, virginia = .3550, PR = .38, james = .403, CC2 = .426, tennessee = .451, NY = .475
@@ -44113,32 +44550,32 @@
             const scope = this;
             const p = new Promise( ( resolve, reject ) => {
                 const int = setInterval( ( ) => {
-                    for ( let i = 0; i < allowedButtons.length; i++ ) {
-                        if ( scope.gamepad.buttons[ allowedButtons[ i ] ].pressed ) {
+                    for ( const button of allowedButtons ) {
+                        if ( scope.gamepad.buttons[ button ].pressed ) {
                             clearInterval( int );
-                            resolve( allowedButtons[ i ] );
+                            resolve( button );
                         }
                     }
-                }, 1 );
+                }, 17 );
             } );
             return p;
         }
         awaitButtonPressFor( allowedButtons, timeoutMs ) {
             const scope = this;
             const p = new Promise( ( resolve, reject ) => {
-                const int = setInterval( ( ) => {
-                    for ( let i = 0; i < allowedButtons.length; i++ ) {
-                        if ( scope.gamepad.buttons[ allowedButtons[ i ] ].pressed ) {
-                            clearInterval( int );
+                const i = setInterval( ( ) => {
+                    for ( const button of allowedButtons ) {
+                        if ( scope.gamepad.buttons[ button ].pressed ) {
+                            clearInterval( i );
                             clearTimeout( t );
-                            resolve( allowedButtons[ i ] );
+                            resolve( button );
                         }
                     }
-                }, 1 );
+                }, 17 );
                 const t = setTimeout( ( ) => {
-                    clearInterval( int );
+                    clearInterval( i );
                     clearTimeout( t );
-                    reject( "Took Too long to collect rent" );
+                    reject( "Took Too long to press button" );
                 }, timeoutMs );
             } );
             return p;
@@ -44156,84 +44593,100 @@
                 if ( !this.inJail )
                     this.money += 200;
             }
-            v1.set( 200, 100, 0 );
-            this.token.localToWorld( v1 );
-            v0.copy( camera.position );
-            camera.lookAt( 0, 0, 0 );
-            q0.copy( camera.quaternion );
-            camera.position.copy( v1 );
-            camera.lookAt( this.token.position );
-            q1.copy( camera.quaternion );
-            fromIObj.a = 0;
-            toIObj.a = 1;
-            const camToTokenTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
-                a
-            } ) => {
-                camera.position.lerpVectors( v0, v1, a );
-                camera.quaternion.slerpQuaternions( q0, q1, a );
-            } ).onComplete( ( ) => {
-                fromIObj.a = currentT;
-                toIObj.a = intT;
-                scope.token.add( camera );
-                camera.position.set( 200, 100, 0 );
-                camera.lookAt( scope.token.position );
-                tokenToSpaceTween.start( );
-            } ).easing( Easing.Quadratic.InOut );
-            const tokenToSpaceTween = new Tween( fromIObj ).to( toIObj, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1500 ).onUpdate( ( {
-                a
-            } ) => {
-                curve.getPointAt( a % 1, scope.token.position );
-                curve.getPointAt( ( a + 0.01 ) % 1, v0 );
-                scope.token.lookAt( v0 );
-            } ).onComplete( ( ) => {
-                scope.currentPos = position;
-                scope.token.remove( camera );
-                scope.token.localToWorld( camera.position );
+            const p = new Promise( ( resolve ) => {
+                v1.set( 200, 100, 0 );
+                this.token.localToWorld( v1 );
                 v0.copy( camera.position );
-                camera.lookAt( scope.token.position );
+                camera.lookAt( 0, 0, 0 );
                 q0.copy( camera.quaternion );
-                v1.set( 0, 2000, 0 );
-                q1.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
+                camera.position.copy( v1 );
+                camera.lookAt( this.token.position );
+                q1.copy( camera.quaternion );
                 fromIObj.a = 0;
                 toIObj.a = 1;
-                camToOrigTween.start( );
-            } ).delay( 500 ).easing( Easing.Sinusoidal.InOut );
-            const camToOrigTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
-                a
-            } ) => {
-                camera.position.lerpVectors( v0, v1, a );
-                camera.quaternion.slerpQuaternions( q0, q1, a );
-            } ).delay( 500 ).easing( Easing.Quadratic.InOut );
-            camToTokenTween.start( );
+                const camToTokenTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                    a
+                } ) => {
+                    camera.position.lerpVectors( v0, v1, a );
+                    camera.quaternion.slerpQuaternions( q0, q1, a );
+                } ).onComplete( ( ) => {
+                    fromIObj.a = currentT;
+                    toIObj.a = intT;
+                    scope.token.add( camera );
+                    camera.position.set( 200, 100, 0 );
+                    camera.lookAt( scope.token.position );
+                    tokenToSpaceTween.start( );
+                } ).easing( Easing.Quadratic.InOut );
+                const tokenToSpaceTween = new Tween( fromIObj ).to( toIObj, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1500 ).onUpdate( ( {
+                    a
+                } ) => {
+                    curve.getPointAt( a % 1, scope.token.position );
+                    curve.getPointAt( ( a + 0.01 ) % 1, v0 );
+                    scope.token.lookAt( v0 );
+                } ).onComplete( ( ) => {
+                    scope.currentPos = position;
+                    scope.token.remove( camera );
+                    scope.token.localToWorld( camera.position );
+                    v0.copy( camera.position );
+                    camera.lookAt( scope.token.position );
+                    q0.copy( camera.quaternion );
+                    v1.set( 0, 975, 0 );
+                    q1.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
+                    fromIObj.a = 0;
+                    toIObj.a = 1;
+                    camToOrigTween.start( );
+                } ).delay( 500 ).easing( Easing.Sinusoidal.InOut );
+                const camToOrigTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                    a
+                } ) => {
+                    camera.position.lerpVectors( v0, v1, a );
+                    camera.quaternion.slerpQuaternions( q0, q1, a );
+                } ).delay( 500 ).easing( Easing.Quadratic.InOut ).onComplete( ( ) => {
+                    resolve( scope );
+                } );
+                camToTokenTween.start( );
+            } );
+            return p;
         }
         moveForward( spaces ) {
-            this.goToPosition( this.currentPos + spaces );
+            return this.goToPosition( this.currentPos + spaces );
         }
         moveBackward( spaces ) {
-            this.goToPosition( this.currentPos - spaces );
+            return this.goToPosition( this.currentPos - spaces );
         }
     }
 
     const {
         innerWidth: s,
         innerHeight: l
-    } = window, m = new WebGLRenderer, d = ( m.setSize( s, l ), m.setClearColor( 12571109 ), document.body.appendChild( m.domElement ), new Scene ), _ = new PerspectiveCamera( 75, s / l, 100, 3e3 ), c = ( _.position.y = 1e3, _.position.x = 2e3, Globals.camera = _, new DirectionalLight ), p = ( d.add( c ), new PMREMGenerator( m ) ), u = new GLTFLoader, h = new Group$1;
+    } = window, m = new WebGLRenderer, d = ( m.setSize( s, l ), m.setClearColor( 12571109 ), document.body.appendChild( m.domElement ), new Scene ), _ = new PerspectiveCamera( 75, s / l, 100, 3e3 ), c = ( _.position.y = 1e3, _.position.x = 2e3, Globals.camera = _, new DirectionalLight ), h = ( d.add( c ), new PMREMGenerator( m ) ), p = new GLTFLoader, u = new Group$1;
     new GUI$1;
-    const g = ( u.load( "../scene.glb", function( e ) {
-        for ( const o of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
-            const r = e.scene.getObjectByName( o );
-            r.geometry.rotateX( -Math.PI / 2 ), r.geometry.rotateY( Math.PI / 2 ), h.add( r );
+    const g = ( p.load( "../scene.glb", e => {
+        for ( const r of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
+            const a = e.scene.getObjectByName( r );
+            a.geometry.rotateX( -Math.PI / 2 ), a.geometry.rotateY( Math.PI / 2 ), u.add( a );
         }
-        _.position.set( 0, 2e3, 0 ), _.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
-        const t = new Player( null, "Daniel", h.children[ 1 ] );
-        t.goToPosition( 11 ), setTimeout( t.goToPosition.bind( t, 10 ), 15e3 ), h.add( e.scene.getObjectByName( "Board_01_-_Default_0" ) ), h.children[ 4 ].geometry.rotateX( -Math.PI / 2 ), h.children[ 4 ].position.z = -5, d.add( h );
+        _.position.set( 0, 975, 0 ), _.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
+        const o = new Player( null, "Daniel", u.children[ 1 ] ),
+            t = new Player( null, "Nate", u.children[ 0 ] );
+        o.goToPosition( 11 ).then( ( ) => {
+            setTimeout( ( ) => {
+                o.goToPosition( 10 ).then( ( ) => {
+                    o.moveBackward( 3 ).then( ( ) => {
+                        o.moveForward( 8 ).then( ( ) => {
+                            t.goToPosition( 25 );
+                        } );
+                    } );
+                } );
+            }, 3e3 );
+        } ), u.add( e.scene.getObjectByName( "Board_01_-_Default_0" ) ), u.children[ 4 ].geometry.rotateX( -Math.PI / 2 ), u.children[ 4 ].position.z = -5, d.add( u );
     } ), new RGBELoader );
 
     function w( ) {
         update( ), m.render( d, _ ), requestAnimationFrame( w );
     }
     g.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
-        d.environment = p.fromEquirectangular( e ).texture;
+        d.environment = h.fromEquirectangular( e ).texture;
     } ), w( );
 
 } )( );

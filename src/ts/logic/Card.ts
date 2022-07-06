@@ -5,8 +5,8 @@ import {
 export type useFunction = ( user: Player ) => void;
 
 export class Card {
-    public static readonly card:HTMLDivElement = document.createElementNS("http://www.w3.org/1999/xhtml", "div") as HTMLDivElement;
-    public static added:boolean = false;
+    public static readonly card: HTMLDivElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" ) as HTMLDivElement;
+    public static added: boolean = false;
 
     private use: useFunction;
 
@@ -18,8 +18,8 @@ export class Card {
         this.use( user );
     }
 
-    static initDOM(){
-        document.body.appendChild(this.card);
+    static initDOM( ) {
+        document.body.appendChild( this.card );
         this.card.style.padding = "5px";
         this.card.style.fontSize = "25px";
         this.card.style.position = "absolute";

@@ -128,7 +128,11 @@ export class CommunityChest {
         dCard.style.display = "block";
         dCard.style.bottom = "-50px";
         dCard.style.transform = "translate(-50%, 0%)";
-        new Tween({ h: -50 }).to({ h: 400 }, 4500).onUpdate(({ h }) => {
+        new Tween({
+            h: -50
+        }).to({
+            h: 400
+        }, 4500).onUpdate(({ h }) => {
             dCard.style.bottom = h + "px";
         }).delay(2000).start().onComplete(() => {
             setTimeout(() => {

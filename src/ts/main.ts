@@ -18,8 +18,12 @@ import {
 import {
     Globals
 } from "./logic/Globals";
-import { ChanceTile } from "./logic/ChanceTile";
-import { CommunityChest } from "./logic/CommunityChest";
+import {
+    ChanceTile
+} from "./logic/ChanceTile";
+import {
+    CommunityChest
+} from "./logic/CommunityChest";
 const {
     innerWidth: width,
     innerHeight: height
@@ -62,19 +66,19 @@ loader.load( "../scene.glb", ( gltf ) => {
     camera.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
 
     const p = new Player( null, "Daniel", pieces.children[ 1 ] as THREE.Mesh );
-    const h = new Player( null, "Nate", pieces.children[0] as THREE.Mesh);
-    
-    p.goToPosition( 11 ).then(() => {
-        setTimeout(() => {
-            p.goToPosition(10).then(() => {
-                p.moveBackward(3).then(() => {
-                    p.moveForward(8).then(() => {
-                        h.goToPosition(25);
-                    });
-                });
-            });
-        }, 3000);
-    })
+    const h = new Player( null, "Nate", pieces.children[ 0 ] as THREE.Mesh );
+
+    p.goToPosition( 11 ).then( ( ) => {
+        setTimeout( ( ) => {
+            p.goToPosition( 10 ).then( ( ) => {
+                p.moveBackward( 3 ).then( ( ) => {
+                    p.moveForward( 8 ).then( ( ) => {
+                        h.goToPosition( 25 );
+                    } );
+                } );
+            } );
+        }, 3000 );
+    } )
 
     pieces.add( gltf.scene.getObjectByName( "Board_01_-_Default_0" ) );
     ( pieces.children[ 4 ] as THREE.Mesh ).geometry.rotateX( -Math.PI / 2 );

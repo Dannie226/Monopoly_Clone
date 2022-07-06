@@ -1,4 +1,6 @@
-import { Tween } from "../../libs/tween";
+import {
+    Tween
+} from "../../libs/tween";
 import {
     Card,
     useFunction
@@ -23,7 +25,7 @@ const cards: {
     advil: {
         card: "Advance to Illinois Ave.",
         function( player: Player ) {
-            player.goToPosition(24);
+            player.goToPosition( 24 );
         },
         immediate: true
     },
@@ -48,14 +50,14 @@ const cards: {
     advgo: {
         card: "Advance to go",
         function( player: Player ) {
-            player.goToPosition(0);
+            player.goToPosition( 0 );
         },
         immediate: true
     },
     advrr: {
         card: "Take a ride on the reading.\n If you pass go, collect $200",
         function( player: Player ) {
-            player.goToPosition(5);
+            player.goToPosition( 5 );
         },
         immediate: true
     },
@@ -76,7 +78,7 @@ const cards: {
     advbw: {
         card: "Take a walk on the board walk.\nAdvance token to board walk.",
         function( player: Player ) {
-            player.goToPosition(39);
+            player.goToPosition( 39 );
         },
         immediate: true
     },
@@ -84,9 +86,9 @@ const cards: {
         card: "Go back 3 spaces",
         function( player: Player ) {
             player.inJail = true;
-            player.moveBackward(3).then(() => {
+            player.moveBackward( 3 ).then( ( ) => {
                 player.inJail = false;
-            })
+            } )
         },
         immediate: true
     },
@@ -108,7 +110,7 @@ const cards: {
         card: "Go directly to jail.\n Do not pass go, do not collect $200",
         function( player: Player ) {
             player.inJail = true;
-            player.goToPosition(10);
+            player.goToPosition( 10 );
         },
         immediate: true
     },
@@ -129,16 +131,16 @@ const cards: {
     advsc: {
         card: "Advance to St. Charles Place.\nIf you pass go, collect $200",
         function( player: Player ) {
-            player.goToPosition(11);
+            player.goToPosition( 11 );
         },
         immediate: true
     },
-    advrng:{
+    advrng: {
         card: "Go to a random spot on the board. If you pass go, collect $200.",
-        function(player: Player){
-            player.goToPosition(Math.random() * 40 | 0);
+        function( player: Player ) {
+            player.goToPosition( Math.random( ) * 40 | 0 );
         },
-        immediate:true
+        immediate: true
     }
 }
 
@@ -150,17 +152,23 @@ export class ChanceTile implements Tile {
         const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
 
         const dCard = Card.card;
-        if(!Card.added) Card.initDOM();
+        if ( !Card.added ) Card.initDOM( );
         dCard.innerText = card.card;
         dCard.style.display = "block";
         dCard.style.bottom = "-50px";
         dCard.style.transform = "translate(-50%, 0%)";
-        new Tween({h:-50}).to({h:400}, 4500).onUpdate(({h}) => {
+        new Tween( {
+            h: -50
+        } ).to( {
+            h: 400
+        }, 4500 ).onUpdate( ( {
+            h
+        } ) => {
             dCard.style.bottom = h + "px";
-        }).delay(2000).start().onComplete(() => {
-            setTimeout(() => {
+        } ).delay( 2000 ).start( ).onComplete( ( ) => {
+            setTimeout( ( ) => {
                 dCard.style.display = "none";
-            }, 3000);
-        });
+            }, 3000 );
+        } );
     }
 }

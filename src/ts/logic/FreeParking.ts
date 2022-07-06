@@ -1,10 +1,14 @@
-import { Player } from "./Player";
-import { Tile } from "./Tile";
+import {
+    Player
+} from "./Player";
+import {
+    Tile
+} from "./Tile";
 
 export class FreeParking implements Tile {
-    type:"special" = "special";
+    type: "special" = "special";
 
-    onLand(player: Player): void {
-        
+    onLand( player: Player ): void {
+
     }
 }

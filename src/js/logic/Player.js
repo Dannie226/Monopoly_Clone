@@ -138,7 +138,9 @@ export class Player {
             const camToOrigTween = new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
                 camera.position.lerpVectors(v0, v1, a);
                 camera.quaternion.slerpQuaternions(q0, q1, a);
-            }).delay(500).easing(Easing.Quadratic.InOut).onComplete(() => { resolve(scope); });
+            }).delay(500).easing(Easing.Quadratic.InOut).onComplete(() => {
+                resolve(scope);
+            });
             camToTokenTween.start();
         });
         return p;
