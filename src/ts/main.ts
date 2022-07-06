@@ -24,7 +24,10 @@ import {
 import {
     CommunityChest
 } from "./logic/CommunityChest";
-import { Dice } from "./logic/Dice";
+import {
+    Dice
+} from "./logic/Dice";
+
 const {
     innerWidth: width,
     innerHeight: height
@@ -53,6 +56,22 @@ const pieces = new THREE.Group( );
 
 //eslint-disable-next-line no-unused-vars
 const gui = new GUI( );
+
+//eslint-disable-next-line no-unused-vars
+const controls = new OrbitControls(camera, renderer.domElement);
+
+loader.load( "../die.glb", ( gltf ) => {
+    Dice.init( );
+    const dieMesh = gltf.scene.getObjectByName( "Box001_Material_#25_0" ) as THREE.Mesh;
+    dieMesh.geometry.center();
+    dieMesh.geometry.computeBoundingBox();
+    const s = dieMesh.geometry.boundingBox.getSize(new THREE.Vector3);
+    console.log(s.x, s.y, s.z);
+    scene.add( Dice.createDie( dieMesh ).getMesh( ) );
+    scene.add(Dice.createDie().getMesh());
+    Dice.roll();
+} );
+
 loader.load( "../board.glb", ( gltf ) => {
     const names = [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ]
     for ( const name of names ) {
@@ -65,20 +84,20 @@ loader.load( "../board.glb", ( gltf ) => {
     camera.position.set( 0, 975, 0 );
     camera.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
 
-    const p = new Player( null, "Daniel", pieces.children[ 1 ] as THREE.Mesh );
-    const h = new Player( null, "Nate", pieces.children[ 0 ] as THREE.Mesh );
+    // const p = new Player( null, "Daniel", pieces.children[ 1 ] as THREE.Mesh );
+    // const h = new Player( null, "Nate", pieces.children[ 0 ] as THREE.Mesh );
 
-    p.goToPosition( 11 ).then( ( ) => {
-        setTimeout( ( ) => {
-            p.goToPosition( 10 ).then( ( ) => {
-                p.moveBackward( 3 ).then( ( ) => {
-                    p.moveForward( 8 ).then( ( ) => {
-                        h.goToPosition( 25 );
-                    } );
-                } );
-            } );
-        }, 3000 );
-    } )
+    // p.goToPosition( 11 ).then( ( ) => {
+    //     setTimeout( ( ) => {
+    //         p.goToPosition( 10 ).then( ( ) => {
+    //             p.moveBackward( 3 ).then( ( ) => {
+    //                 p.moveForward( 8 ).then( ( ) => {
+    //                     h.goToPosition( 25 );
+    //                 } );
+    //             } );
+    //         } );
+    //     }, 3000 );
+    // } )
 
     pieces.add( gltf.scene.getObjectByName( "Board_01_-_Default_0" ) );
     ( pieces.children[ 4 ] as THREE.Mesh ).geometry.rotateX( -Math.PI / 2 );
@@ -96,6 +115,8 @@ hdrLoader.load( "https://threejs.org/examples/textures/equirectangular/pedestria
 
 function animate( ) {
     TWEEN.update( );
+    Dice.update( );
+
     renderer.render( scene, camera );
     requestAnimationFrame( animate );
 }
