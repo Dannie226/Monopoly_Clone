@@ -30609,6 +30609,671 @@
 
     }
 
+    /**
+     * Extensible curve object.
+     *
+     * Some common of curve methods:
+     * .getPoint( t, optionalTarget ), .getTangent( t, optionalTarget )
+     * .getPointAt( u, optionalTarget ), .getTangentAt( u, optionalTarget )
+     * .getPoints(), .getSpacedPoints()
+     * .getLength()
+     * .updateArcLengths()
+     *
+     * This following curves inherit from THREE.Curve:
+     *
+     * -- 2D curves --
+     * THREE.ArcCurve
+     * THREE.CubicBezierCurve
+     * THREE.EllipseCurve
+     * THREE.LineCurve
+     * THREE.QuadraticBezierCurve
+     * THREE.SplineCurve
+     *
+     * -- 3D curves --
+     * THREE.CatmullRomCurve3
+     * THREE.CubicBezierCurve3
+     * THREE.LineCurve3
+     * THREE.QuadraticBezierCurve3
+     *
+     * A series of curves can be represented as a THREE.CurvePath.
+     *
+     **/
+
+    class Curve {
+
+        constructor( ) {
+
+            this.type = 'Curve';
+
+            this.arcLengthDivisions = 200;
+
+        }
+
+        // Virtual base class method to overwrite and implement in subclasses
+        //	- t [0 .. 1]
+
+        getPoint( /* t, optionalTarget */ ) {
+
+            console.warn( 'THREE.Curve: .getPoint() not implemented.' );
+            return null;
+
+        }
+
+        // Get point at relative position in curve according to arc length
+        // - u [0 .. 1]
+
+        getPointAt( u, optionalTarget ) {
+
+            const t = this.getUtoTmapping( u );
+            return this.getPoint( t, optionalTarget );
+
+        }
+
+        // Get sequence of points using getPoint( t )
+
+        getPoints( divisions = 5 ) {
+
+            const points = [ ];
+
+            for ( let d = 0; d <= divisions; d++ ) {
+
+                points.push( this.getPoint( d / divisions ) );
+
+            }
+
+            return points;
+
+        }
+
+        // Get sequence of points using getPointAt( u )
+
+        getSpacedPoints( divisions = 5 ) {
+
+            const points = [ ];
+
+            for ( let d = 0; d <= divisions; d++ ) {
+
+                points.push( this.getPointAt( d / divisions ) );
+
+            }
+
+            return points;
+
+        }
+
+        // Get total curve arc length
+
+        getLength( ) {
+
+            const lengths = this.getLengths( );
+            return lengths[ lengths.length - 1 ];
+
+        }
+
+        // Get list of cumulative segment lengths
+
+        getLengths( divisions = this.arcLengthDivisions ) {
+
+            if ( this.cacheArcLengths &&
+                ( this.cacheArcLengths.length === divisions + 1 ) &&
+                !this.needsUpdate ) {
+
+                return this.cacheArcLengths;
+
+            }
+
+            this.needsUpdate = false;
+
+            const cache = [ ];
+            let current, last = this.getPoint( 0 );
+            let sum = 0;
+
+            cache.push( 0 );
+
+            for ( let p = 1; p <= divisions; p++ ) {
+
+                current = this.getPoint( p / divisions );
+                sum += current.distanceTo( last );
+                cache.push( sum );
+                last = current;
+
+            }
+
+            this.cacheArcLengths = cache;
+
+            return cache; // { sums: cache, sum: sum }; Sum is in the last element.
+
+        }
+
+        updateArcLengths( ) {
+
+            this.needsUpdate = true;
+            this.getLengths( );
+
+        }
+
+        // Given u ( 0 .. 1 ), get a t to find p. This gives you points which are equidistant
+
+        getUtoTmapping( u, distance ) {
+
+            const arcLengths = this.getLengths( );
+
+            let i = 0;
+            const il = arcLengths.length;
+
+            let targetArcLength; // The targeted u distance value to get
+
+            if ( distance ) {
+
+                targetArcLength = distance;
+
+            } else {
+
+                targetArcLength = u * arcLengths[ il - 1 ];
+
+            }
+
+            // binary search for the index with largest value smaller than target u distance
+
+            let low = 0,
+                high = il - 1,
+                comparison;
+
+            while ( low <= high ) {
+
+                i = Math.floor( low + ( high - low ) / 2 ); // less likely to overflow, though probably not issue here, JS doesn't really have integers, all numbers are floats
+
+                comparison = arcLengths[ i ] - targetArcLength;
+
+                if ( comparison < 0 ) {
+
+                    low = i + 1;
+
+                } else if ( comparison > 0 ) {
+
+                    high = i - 1;
+
+                } else {
+
+                    high = i;
+                    break;
+
+                    // DONE
+
+                }
+
+            }
+
+            i = high;
+
+            if ( arcLengths[ i ] === targetArcLength ) {
+
+                return i / ( il - 1 );
+
+            }
+
+            // we could get finer grain at lengths, or use simple interpolation between two points
+
+            const lengthBefore = arcLengths[ i ];
+            const lengthAfter = arcLengths[ i + 1 ];
+
+            const segmentLength = lengthAfter - lengthBefore;
+
+            // determine where we are between the 'before' and 'after' points
+
+            const segmentFraction = ( targetArcLength - lengthBefore ) / segmentLength;
+
+            // add that fractional amount to t
+
+            const t = ( i + segmentFraction ) / ( il - 1 );
+
+            return t;
+
+        }
+
+        // Returns a unit vector tangent at t
+        // In case any sub curve does not implement its tangent derivation,
+        // 2 points a small delta apart will be used to find its gradient
+        // which seems to give a reasonable approximation
+
+        getTangent( t, optionalTarget ) {
+
+            const delta = 0.0001;
+            let t1 = t - delta;
+            let t2 = t + delta;
+
+            // Capping in case of danger
+
+            if ( t1 < 0 ) t1 = 0;
+            if ( t2 > 1 ) t2 = 1;
+
+            const pt1 = this.getPoint( t1 );
+            const pt2 = this.getPoint( t2 );
+
+            const tangent = optionalTarget || ( ( pt1.isVector2 ) ? new Vector2( ) : new Vector3( ) );
+
+            tangent.copy( pt2 ).sub( pt1 ).normalize( );
+
+            return tangent;
+
+        }
+
+        getTangentAt( u, optionalTarget ) {
+
+            const t = this.getUtoTmapping( u );
+            return this.getTangent( t, optionalTarget );
+
+        }
+
+        computeFrenetFrames( segments, closed ) {
+
+            // see http://www.cs.indiana.edu/pub/techreports/TR425.pdf
+
+            const normal = new Vector3( );
+
+            const tangents = [ ];
+            const normals = [ ];
+            const binormals = [ ];
+
+            const vec = new Vector3( );
+            const mat = new Matrix4( );
+
+            // compute the tangent vectors for each segment on the curve
+
+            for ( let i = 0; i <= segments; i++ ) {
+
+                const u = i / segments;
+
+                tangents[ i ] = this.getTangentAt( u, new Vector3( ) );
+
+            }
+
+            // select an initial normal vector perpendicular to the first tangent vector,
+            // and in the direction of the minimum tangent xyz component
+
+            normals[ 0 ] = new Vector3( );
+            binormals[ 0 ] = new Vector3( );
+            let min = Number.MAX_VALUE;
+            const tx = Math.abs( tangents[ 0 ].x );
+            const ty = Math.abs( tangents[ 0 ].y );
+            const tz = Math.abs( tangents[ 0 ].z );
+
+            if ( tx <= min ) {
+
+                min = tx;
+                normal.set( 1, 0, 0 );
+
+            }
+
+            if ( ty <= min ) {
+
+                min = ty;
+                normal.set( 0, 1, 0 );
+
+            }
+
+            if ( tz <= min ) {
+
+                normal.set( 0, 0, 1 );
+
+            }
+
+            vec.crossVectors( tangents[ 0 ], normal ).normalize( );
+
+            normals[ 0 ].crossVectors( tangents[ 0 ], vec );
+            binormals[ 0 ].crossVectors( tangents[ 0 ], normals[ 0 ] );
+
+
+            // compute the slowly-varying normal and binormal vectors for each segment on the curve
+
+            for ( let i = 1; i <= segments; i++ ) {
+
+                normals[ i ] = normals[ i - 1 ].clone( );
+
+                binormals[ i ] = binormals[ i - 1 ].clone( );
+
+                vec.crossVectors( tangents[ i - 1 ], tangents[ i ] );
+
+                if ( vec.length( ) > Number.EPSILON ) {
+
+                    vec.normalize( );
+
+                    const theta = Math.acos( clamp( tangents[ i - 1 ].dot( tangents[ i ] ), -1, 1 ) ); // clamp for floating pt errors
+
+                    normals[ i ].applyMatrix4( mat.makeRotationAxis( vec, theta ) );
+
+                }
+
+                binormals[ i ].crossVectors( tangents[ i ], normals[ i ] );
+
+            }
+
+            // if the curve is closed, postprocess the vectors so the first and last normal vectors are the same
+
+            if ( closed === true ) {
+
+                let theta = Math.acos( clamp( normals[ 0 ].dot( normals[ segments ] ), -1, 1 ) );
+                theta /= segments;
+
+                if ( tangents[ 0 ].dot( vec.crossVectors( normals[ 0 ], normals[ segments ] ) ) > 0 ) {
+
+                    theta = -theta;
+
+                }
+
+                for ( let i = 1; i <= segments; i++ ) {
+
+                    // twist a little...
+                    normals[ i ].applyMatrix4( mat.makeRotationAxis( tangents[ i ], theta * i ) );
+                    binormals[ i ].crossVectors( tangents[ i ], normals[ i ] );
+
+                }
+
+            }
+
+            return {
+                tangents: tangents,
+                normals: normals,
+                binormals: binormals
+            };
+
+        }
+
+        clone( ) {
+
+            return new this.constructor( ).copy( this );
+
+        }
+
+        copy( source ) {
+
+            this.arcLengthDivisions = source.arcLengthDivisions;
+
+            return this;
+
+        }
+
+        toJSON( ) {
+
+            const data = {
+                metadata: {
+                    version: 4.5,
+                    type: 'Curve',
+                    generator: 'Curve.toJSON'
+                }
+            };
+
+            data.arcLengthDivisions = this.arcLengthDivisions;
+            data.type = this.type;
+
+            return data;
+
+        }
+
+        fromJSON( json ) {
+
+            this.arcLengthDivisions = json.arcLengthDivisions;
+
+            return this;
+
+        }
+
+    }
+
+    /**
+     * Centripetal CatmullRom Curve - which is useful for avoiding
+     * cusps and self-intersections in non-uniform catmull rom curves.
+     * http://www.cemyuksel.com/research/catmullrom_param/catmullrom.pdf
+     *
+     * curve.type accepts centripetal(default), chordal and catmullrom
+     * curve.tension is used for catmullrom which defaults to 0.5
+     */
+
+
+    /*
+    Based on an optimized c++ solution in
+     - http://stackoverflow.com/questions/9489736/catmull-rom-curve-with-no-cusps-and-no-self-intersections/
+     - http://ideone.com/NoEbVM
+
+    This CubicPoly class could be used for reusing some variables and calculations,
+    but for three.js curve use, it could be possible inlined and flatten into a single function call
+    which can be placed in CurveUtils.
+    */
+
+    function CubicPoly( ) {
+
+        let c0 = 0,
+            c1 = 0,
+            c2 = 0,
+            c3 = 0;
+
+        /*
+         * Compute coefficients for a cubic polynomial
+         *   p(s) = c0 + c1*s + c2*s^2 + c3*s^3
+         * such that
+         *   p(0) = x0, p(1) = x1
+         *  and
+         *   p'(0) = t0, p'(1) = t1.
+         */
+        function init( x0, x1, t0, t1 ) {
+
+            c0 = x0;
+            c1 = t0;
+            c2 = -3 * x0 + 3 * x1 - 2 * t0 - t1;
+            c3 = 2 * x0 - 2 * x1 + t0 + t1;
+
+        }
+
+        return {
+
+            initCatmullRom: function( x0, x1, x2, x3, tension ) {
+
+                init( x1, x2, tension * ( x2 - x0 ), tension * ( x3 - x1 ) );
+
+            },
+
+            initNonuniformCatmullRom: function( x0, x1, x2, x3, dt0, dt1, dt2 ) {
+
+                // compute tangents when parameterized in [t1,t2]
+                let t1 = ( x1 - x0 ) / dt0 - ( x2 - x0 ) / ( dt0 + dt1 ) + ( x2 - x1 ) / dt1;
+                let t2 = ( x2 - x1 ) / dt1 - ( x3 - x1 ) / ( dt1 + dt2 ) + ( x3 - x2 ) / dt2;
+
+                // rescale tangents for parametrization in [0,1]
+                t1 *= dt1;
+                t2 *= dt1;
+
+                init( x1, x2, t1, t2 );
+
+            },
+
+            calc: function( t ) {
+
+                const t2 = t * t;
+                const t3 = t2 * t;
+                return c0 + c1 * t + c2 * t2 + c3 * t3;
+
+            }
+
+        };
+
+    }
+
+    //
+
+    const tmp$2 = /*@__PURE__*/ new Vector3( );
+    const px = /*@__PURE__*/ new CubicPoly( );
+    const py = /*@__PURE__*/ new CubicPoly( );
+    const pz = /*@__PURE__*/ new CubicPoly( );
+
+    class CatmullRomCurve3 extends Curve {
+
+        constructor( points = [ ], closed = false, curveType = 'centripetal', tension = 0.5 ) {
+
+            super( );
+
+            this.isCatmullRomCurve3 = true;
+
+            this.type = 'CatmullRomCurve3';
+
+            this.points = points;
+            this.closed = closed;
+            this.curveType = curveType;
+            this.tension = tension;
+
+        }
+
+        getPoint( t, optionalTarget = new Vector3( ) ) {
+
+            const point = optionalTarget;
+
+            const points = this.points;
+            const l = points.length;
+
+            const p = ( l - ( this.closed ? 0 : 1 ) ) * t;
+            let intPoint = Math.floor( p );
+            let weight = p - intPoint;
+
+            if ( this.closed ) {
+
+                intPoint += intPoint > 0 ? 0 : ( Math.floor( Math.abs( intPoint ) / l ) + 1 ) * l;
+
+            } else if ( weight === 0 && intPoint === l - 1 ) {
+
+                intPoint = l - 2;
+                weight = 1;
+
+            }
+
+            let p0, p3; // 4 points (p1 & p2 defined below)
+
+            if ( this.closed || intPoint > 0 ) {
+
+                p0 = points[ ( intPoint - 1 ) % l ];
+
+            } else {
+
+                // extrapolate first point
+                tmp$2.subVectors( points[ 0 ], points[ 1 ] ).add( points[ 0 ] );
+                p0 = tmp$2;
+
+            }
+
+            const p1 = points[ intPoint % l ];
+            const p2 = points[ ( intPoint + 1 ) % l ];
+
+            if ( this.closed || intPoint + 2 < l ) {
+
+                p3 = points[ ( intPoint + 2 ) % l ];
+
+            } else {
+
+                // extrapolate last point
+                tmp$2.subVectors( points[ l - 1 ], points[ l - 2 ] ).add( points[ l - 1 ] );
+                p3 = tmp$2;
+
+            }
+
+            if ( this.curveType === 'centripetal' || this.curveType === 'chordal' ) {
+
+                // init Centripetal / Chordal Catmull-Rom
+                const pow = this.curveType === 'chordal' ? 0.5 : 0.25;
+                let dt0 = Math.pow( p0.distanceToSquared( p1 ), pow );
+                let dt1 = Math.pow( p1.distanceToSquared( p2 ), pow );
+                let dt2 = Math.pow( p2.distanceToSquared( p3 ), pow );
+
+                // safety check for repeated points
+                if ( dt1 < 1e-4 ) dt1 = 1.0;
+                if ( dt0 < 1e-4 ) dt0 = dt1;
+                if ( dt2 < 1e-4 ) dt2 = dt1;
+
+                px.initNonuniformCatmullRom( p0.x, p1.x, p2.x, p3.x, dt0, dt1, dt2 );
+                py.initNonuniformCatmullRom( p0.y, p1.y, p2.y, p3.y, dt0, dt1, dt2 );
+                pz.initNonuniformCatmullRom( p0.z, p1.z, p2.z, p3.z, dt0, dt1, dt2 );
+
+            } else if ( this.curveType === 'catmullrom' ) {
+
+                px.initCatmullRom( p0.x, p1.x, p2.x, p3.x, this.tension );
+                py.initCatmullRom( p0.y, p1.y, p2.y, p3.y, this.tension );
+                pz.initCatmullRom( p0.z, p1.z, p2.z, p3.z, this.tension );
+
+            }
+
+            point.set(
+                px.calc( weight ),
+                py.calc( weight ),
+                pz.calc( weight )
+            );
+
+            return point;
+
+        }
+
+        copy( source ) {
+
+            super.copy( source );
+
+            this.points = [ ];
+
+            for ( let i = 0, l = source.points.length; i < l; i++ ) {
+
+                const point = source.points[ i ];
+
+                this.points.push( point.clone( ) );
+
+            }
+
+            this.closed = source.closed;
+            this.curveType = source.curveType;
+            this.tension = source.tension;
+
+            return this;
+
+        }
+
+        toJSON( ) {
+
+            const data = super.toJSON( );
+
+            data.points = [ ];
+
+            for ( let i = 0, l = this.points.length; i < l; i++ ) {
+
+                const point = this.points[ i ];
+                data.points.push( point.toArray( ) );
+
+            }
+
+            data.closed = this.closed;
+            data.curveType = this.curveType;
+            data.tension = this.tension;
+
+            return data;
+
+        }
+
+        fromJSON( json ) {
+
+            super.fromJSON( json );
+
+            this.points = [ ];
+
+            for ( let i = 0, l = json.points.length; i < l; i++ ) {
+
+                const point = json.points[ i ];
+                this.points.push( new Vector3( ).fromArray( point ) );
+
+            }
+
+            this.closed = json.closed;
+            this.curveType = json.curveType;
+            this.tension = json.tension;
+
+            return this;
+
+        }
+
+    }
+
     class MeshStandardMaterial extends Material$1 {
 
         constructor( parameters ) {
@@ -40107,6 +40772,186 @@
     /**
      * The Ease class provides a collection of easing functions for use with tween.js.
      */
+    var Easing = {
+        Linear: {
+            None: function( amount ) {
+                return amount;
+            },
+        },
+        Quadratic: {
+            In: function( amount ) {
+                return amount * amount;
+            },
+            Out: function( amount ) {
+                return amount * ( 2 - amount );
+            },
+            InOut: function( amount ) {
+                if ( ( amount *= 2 ) < 1 ) {
+                    return 0.5 * amount * amount;
+                }
+                return -0.5 * ( --amount * ( amount - 2 ) - 1 );
+            },
+        },
+        Cubic: {
+            In: function( amount ) {
+                return amount * amount * amount;
+            },
+            Out: function( amount ) {
+                return --amount * amount * amount + 1;
+            },
+            InOut: function( amount ) {
+                if ( ( amount *= 2 ) < 1 ) {
+                    return 0.5 * amount * amount * amount;
+                }
+                return 0.5 * ( ( amount -= 2 ) * amount * amount + 2 );
+            },
+        },
+        Quartic: {
+            In: function( amount ) {
+                return amount * amount * amount * amount;
+            },
+            Out: function( amount ) {
+                return 1 - --amount * amount * amount * amount;
+            },
+            InOut: function( amount ) {
+                if ( ( amount *= 2 ) < 1 ) {
+                    return 0.5 * amount * amount * amount * amount;
+                }
+                return -0.5 * ( ( amount -= 2 ) * amount * amount * amount - 2 );
+            },
+        },
+        Quintic: {
+            In: function( amount ) {
+                return amount * amount * amount * amount * amount;
+            },
+            Out: function( amount ) {
+                return --amount * amount * amount * amount * amount + 1;
+            },
+            InOut: function( amount ) {
+                if ( ( amount *= 2 ) < 1 ) {
+                    return 0.5 * amount * amount * amount * amount * amount;
+                }
+                return 0.5 * ( ( amount -= 2 ) * amount * amount * amount * amount + 2 );
+            },
+        },
+        Sinusoidal: {
+            In: function( amount ) {
+                return 1 - Math.cos( ( amount * Math.PI ) / 2 );
+            },
+            Out: function( amount ) {
+                return Math.sin( ( amount * Math.PI ) / 2 );
+            },
+            InOut: function( amount ) {
+                return 0.5 * ( 1 - Math.cos( Math.PI * amount ) );
+            },
+        },
+        Exponential: {
+            In: function( amount ) {
+                return amount === 0 ? 0 : Math.pow( 1024, amount - 1 );
+            },
+            Out: function( amount ) {
+                return amount === 1 ? 1 : 1 - Math.pow( 2, -10 * amount );
+            },
+            InOut: function( amount ) {
+                if ( amount === 0 ) {
+                    return 0;
+                }
+                if ( amount === 1 ) {
+                    return 1;
+                }
+                if ( ( amount *= 2 ) < 1 ) {
+                    return 0.5 * Math.pow( 1024, amount - 1 );
+                }
+                return 0.5 * ( -Math.pow( 2, -10 * ( amount - 1 ) ) + 2 );
+            },
+        },
+        Circular: {
+            In: function( amount ) {
+                return 1 - Math.sqrt( 1 - amount * amount );
+            },
+            Out: function( amount ) {
+                return Math.sqrt( 1 - --amount * amount );
+            },
+            InOut: function( amount ) {
+                if ( ( amount *= 2 ) < 1 ) {
+                    return -0.5 * ( Math.sqrt( 1 - amount * amount ) - 1 );
+                }
+                return 0.5 * ( Math.sqrt( 1 - ( amount -= 2 ) * amount ) + 1 );
+            },
+        },
+        Elastic: {
+            In: function( amount ) {
+                if ( amount === 0 ) {
+                    return 0;
+                }
+                if ( amount === 1 ) {
+                    return 1;
+                }
+                return -Math.pow( 2, 10 * ( amount - 1 ) ) * Math.sin( ( amount - 1.1 ) * 5 * Math.PI );
+            },
+            Out: function( amount ) {
+                if ( amount === 0 ) {
+                    return 0;
+                }
+                if ( amount === 1 ) {
+                    return 1;
+                }
+                return Math.pow( 2, -10 * amount ) * Math.sin( ( amount - 0.1 ) * 5 * Math.PI ) + 1;
+            },
+            InOut: function( amount ) {
+                if ( amount === 0 ) {
+                    return 0;
+                }
+                if ( amount === 1 ) {
+                    return 1;
+                }
+                amount *= 2;
+                if ( amount < 1 ) {
+                    return -0.5 * Math.pow( 2, 10 * ( amount - 1 ) ) * Math.sin( ( amount - 1.1 ) * 5 * Math.PI );
+                }
+                return 0.5 * Math.pow( 2, -10 * ( amount - 1 ) ) * Math.sin( ( amount - 1.1 ) * 5 * Math.PI ) + 1;
+            },
+        },
+        Back: {
+            In: function( amount ) {
+                var s = 1.70158;
+                return amount * amount * ( ( s + 1 ) * amount - s );
+            },
+            Out: function( amount ) {
+                var s = 1.70158;
+                return --amount * amount * ( ( s + 1 ) * amount + s ) + 1;
+            },
+            InOut: function( amount ) {
+                var s = 1.70158 * 1.525;
+                if ( ( amount *= 2 ) < 1 ) {
+                    return 0.5 * ( amount * amount * ( ( s + 1 ) * amount - s ) );
+                }
+                return 0.5 * ( ( amount -= 2 ) * amount * ( ( s + 1 ) * amount + s ) + 2 );
+            },
+        },
+        Bounce: {
+            In: function( amount ) {
+                return 1 - Easing.Bounce.Out( 1 - amount );
+            },
+            Out: function( amount ) {
+                if ( amount < 1 / 2.75 ) {
+                    return 7.5625 * amount * amount;
+                } else if ( amount < 2 / 2.75 ) {
+                    return 7.5625 * ( amount -= 1.5 / 2.75 ) * amount + 0.75;
+                } else if ( amount < 2.5 / 2.75 ) {
+                    return 7.5625 * ( amount -= 2.25 / 2.75 ) * amount + 0.9375;
+                } else {
+                    return 7.5625 * ( amount -= 2.625 / 2.75 ) * amount + 0.984375;
+                }
+            },
+            InOut: function( amount ) {
+                if ( amount < 0.5 ) {
+                    return Easing.Bounce.In( amount * 2 ) * 0.5;
+                }
+                return Easing.Bounce.Out( amount * 2 - 1 ) * 0.5 + 0.5;
+            },
+        },
+    };
 
     var now;
     // Include a performance.now polyfill.
@@ -40200,7 +41045,498 @@
         return Group;
     }( ) );
 
+    /**
+     *
+     */
+    var Interpolation = {
+        Linear: function( v, k ) {
+            var m = v.length - 1;
+            var f = m * k;
+            var i = Math.floor( f );
+            var fn = Interpolation.Utils.Linear;
+            if ( k < 0 ) {
+                return fn( v[ 0 ], v[ 1 ], f );
+            }
+            if ( k > 1 ) {
+                return fn( v[ m ], v[ m - 1 ], m - f );
+            }
+            return fn( v[ i ], v[ i + 1 > m ? m : i + 1 ], f - i );
+        },
+        Bezier: function( v, k ) {
+            var b = 0;
+            var n = v.length - 1;
+            var pw = Math.pow;
+            var bn = Interpolation.Utils.Bernstein;
+            for ( var i = 0; i <= n; i++ ) {
+                b += pw( 1 - k, n - i ) * pw( k, i ) * v[ i ] * bn( n, i );
+            }
+            return b;
+        },
+        CatmullRom: function( v, k ) {
+            var m = v.length - 1;
+            var f = m * k;
+            var i = Math.floor( f );
+            var fn = Interpolation.Utils.CatmullRom;
+            if ( v[ 0 ] === v[ m ] ) {
+                if ( k < 0 ) {
+                    i = Math.floor( ( f = m * ( 1 + k ) ) );
+                }
+                return fn( v[ ( i - 1 + m ) % m ], v[ i ], v[ ( i + 1 ) % m ], v[ ( i + 2 ) % m ], f - i );
+            } else {
+                if ( k < 0 ) {
+                    return v[ 0 ] - ( fn( v[ 0 ], v[ 0 ], v[ 1 ], v[ 1 ], -f ) - v[ 0 ] );
+                }
+                if ( k > 1 ) {
+                    return v[ m ] - ( fn( v[ m ], v[ m ], v[ m - 1 ], v[ m - 1 ], f - m ) - v[ m ] );
+                }
+                return fn( v[ i ? i - 1 : 0 ], v[ i ], v[ m < i + 1 ? m : i + 1 ], v[ m < i + 2 ? m : i + 2 ], f - i );
+            }
+        },
+        Utils: {
+            Linear: function( p0, p1, t ) {
+                return ( p1 - p0 ) * t + p0;
+            },
+            Bernstein: function( n, i ) {
+                var fc = Interpolation.Utils.Factorial;
+                return fc( n ) / fc( i ) / fc( n - i );
+            },
+            Factorial: ( function( ) {
+                var a = [ 1 ];
+                return function( n ) {
+                    var s = 1;
+                    if ( a[ n ] ) {
+                        return a[ n ];
+                    }
+                    for ( var i = n; i > 1; i-- ) {
+                        s *= i;
+                    }
+                    a[ n ] = s;
+                    return s;
+                };
+            } )( ),
+            CatmullRom: function( p0, p1, p2, p3, t ) {
+                var v0 = ( p2 - p0 ) * 0.5;
+                var v1 = ( p3 - p1 ) * 0.5;
+                var t2 = t * t;
+                var t3 = t * t2;
+                return ( 2 * p1 - 2 * p2 + v0 + v1 ) * t3 + ( -3 * p1 + 3 * p2 - 2 * v0 - v1 ) * t2 + v0 * t + p1;
+            },
+        },
+    };
+
+    /**
+     * Utils
+     */
+    var Sequence = /** @class */ ( function( ) {
+        function Sequence( ) {}
+        Sequence.nextId = function( ) {
+            return Sequence._nextId++;
+        };
+        Sequence._nextId = 0;
+        return Sequence;
+    }( ) );
+
     var mainGroup = new Group( );
+
+    /**
+     * Tween.js - Licensed under the MIT license
+     * https://github.com/tweenjs/tween.js
+     * ----------------------------------------------
+     *
+     * See https://github.com/tweenjs/tween.js/graphs/contributors for the full list of contributors.
+     * Thank you all, you're awesome!
+     */
+    var Tween = /** @class */ ( function( ) {
+        function Tween( _object, _group ) {
+            if ( _group === void 0 ) {
+                _group = mainGroup;
+            }
+            this._object = _object;
+            this._group = _group;
+            this._isPaused = false;
+            this._pauseStart = 0;
+            this._valuesStart = {};
+            this._valuesEnd = {};
+            this._valuesStartRepeat = {};
+            this._duration = 1000;
+            this._initialRepeat = 0;
+            this._repeat = 0;
+            this._yoyo = false;
+            this._isPlaying = false;
+            this._reversed = false;
+            this._delayTime = 0;
+            this._startTime = 0;
+            this._easingFunction = Easing.Linear.None;
+            this._interpolationFunction = Interpolation.Linear;
+            this._chainedTweens = [ ];
+            this._onStartCallbackFired = false;
+            this._id = Sequence.nextId( );
+            this._isChainStopped = false;
+            this._goToEnd = false;
+        }
+        Tween.prototype.getId = function( ) {
+            return this._id;
+        };
+        Tween.prototype.isPlaying = function( ) {
+            return this._isPlaying;
+        };
+        Tween.prototype.isPaused = function( ) {
+            return this._isPaused;
+        };
+        Tween.prototype.to = function( properties, duration ) {
+            // TODO? restore this, then update the 07_dynamic_to example to set fox
+            // tween's to on each update. That way the behavior is opt-in (there's
+            // currently no opt-out).
+            // for (const prop in properties) this._valuesEnd[prop] = properties[prop]
+            this._valuesEnd = Object.create( properties );
+            if ( duration !== undefined ) {
+                this._duration = duration;
+            }
+            return this;
+        };
+        Tween.prototype.duration = function( d ) {
+            this._duration = d;
+            return this;
+        };
+        Tween.prototype.start = function( time ) {
+            if ( this._isPlaying ) {
+                return this;
+            }
+            // eslint-disable-next-line
+            this._group && this._group.add( this );
+            this._repeat = this._initialRepeat;
+            if ( this._reversed ) {
+                // If we were reversed (f.e. using the yoyo feature) then we need to
+                // flip the tween direction back to forward.
+                this._reversed = false;
+                for ( var property in this._valuesStartRepeat ) {
+                    this._swapEndStartRepeatValues( property );
+                    this._valuesStart[ property ] = this._valuesStartRepeat[ property ];
+                }
+            }
+            this._isPlaying = true;
+            this._isPaused = false;
+            this._onStartCallbackFired = false;
+            this._isChainStopped = false;
+            this._startTime = time !== undefined ? ( typeof time === 'string' ? now$1( ) + parseFloat( time ) : time ) : now$1( );
+            this._startTime += this._delayTime;
+            this._setupProperties( this._object, this._valuesStart, this._valuesEnd, this._valuesStartRepeat );
+            return this;
+        };
+        Tween.prototype._setupProperties = function( _object, _valuesStart, _valuesEnd, _valuesStartRepeat ) {
+            for ( var property in _valuesEnd ) {
+                var startValue = _object[ property ];
+                var startValueIsArray = Array.isArray( startValue );
+                var propType = startValueIsArray ? 'array' : typeof startValue;
+                var isInterpolationList = !startValueIsArray && Array.isArray( _valuesEnd[ property ] );
+                // If `to()` specifies a property that doesn't exist in the source object,
+                // we should not set that property in the object
+                if ( propType === 'undefined' || propType === 'function' ) {
+                    continue;
+                }
+                // Check if an Array was provided as property value
+                if ( isInterpolationList ) {
+                    var endValues = _valuesEnd[ property ];
+                    if ( endValues.length === 0 ) {
+                        continue;
+                    }
+                    // handle an array of relative values
+                    endValues = endValues.map( this._handleRelativeValue.bind( this, startValue ) );
+                    // Create a local copy of the Array with the start value at the front
+                    _valuesEnd[ property ] = [ startValue ].concat( endValues );
+                }
+                // handle the deepness of the values
+                if ( ( propType === 'object' || startValueIsArray ) && startValue && !isInterpolationList ) {
+                    _valuesStart[ property ] = startValueIsArray ? [ ] : {};
+                    // eslint-disable-next-line
+                    for ( var prop in startValue ) {
+                        // eslint-disable-next-line
+                        // @ts-ignore FIXME?
+                        _valuesStart[ property ][ prop ] = startValue[ prop ];
+                    }
+                    _valuesStartRepeat[ property ] = startValueIsArray ? [ ] : {}; // TODO? repeat nested values? And yoyo? And array values?
+                    // eslint-disable-next-line
+                    // @ts-ignore FIXME?
+                    this._setupProperties( startValue, _valuesStart[ property ], _valuesEnd[ property ], _valuesStartRepeat[ property ] );
+                } else {
+                    // Save the starting value, but only once.
+                    if ( typeof _valuesStart[ property ] === 'undefined' ) {
+                        _valuesStart[ property ] = startValue;
+                    }
+                    if ( !startValueIsArray ) {
+                        // eslint-disable-next-line
+                        // @ts-ignore FIXME?
+                        _valuesStart[ property ] *= 1.0; // Ensures we're using numbers, not strings
+                    }
+                    if ( isInterpolationList ) {
+                        // eslint-disable-next-line
+                        // @ts-ignore FIXME?
+                        _valuesStartRepeat[ property ] = _valuesEnd[ property ].slice( ).reverse( );
+                    } else {
+                        _valuesStartRepeat[ property ] = _valuesStart[ property ] || 0;
+                    }
+                }
+            }
+        };
+        Tween.prototype.stop = function( ) {
+            if ( !this._isChainStopped ) {
+                this._isChainStopped = true;
+                this.stopChainedTweens( );
+            }
+            if ( !this._isPlaying ) {
+                return this;
+            }
+            // eslint-disable-next-line
+            this._group && this._group.remove( this );
+            this._isPlaying = false;
+            this._isPaused = false;
+            if ( this._onStopCallback ) {
+                this._onStopCallback( this._object );
+            }
+            return this;
+        };
+        Tween.prototype.end = function( ) {
+            this._goToEnd = true;
+            this.update( Infinity );
+            return this;
+        };
+        Tween.prototype.pause = function( time ) {
+            if ( time === void 0 ) {
+                time = now$1( );
+            }
+            if ( this._isPaused || !this._isPlaying ) {
+                return this;
+            }
+            this._isPaused = true;
+            this._pauseStart = time;
+            // eslint-disable-next-line
+            this._group && this._group.remove( this );
+            return this;
+        };
+        Tween.prototype.resume = function( time ) {
+            if ( time === void 0 ) {
+                time = now$1( );
+            }
+            if ( !this._isPaused || !this._isPlaying ) {
+                return this;
+            }
+            this._isPaused = false;
+            this._startTime += time - this._pauseStart;
+            this._pauseStart = 0;
+            // eslint-disable-next-line
+            this._group && this._group.add( this );
+            return this;
+        };
+        Tween.prototype.stopChainedTweens = function( ) {
+            for ( var i = 0, numChainedTweens = this._chainedTweens.length; i < numChainedTweens; i++ ) {
+                this._chainedTweens[ i ].stop( );
+            }
+            return this;
+        };
+        Tween.prototype.group = function( group ) {
+            this._group = group;
+            return this;
+        };
+        Tween.prototype.delay = function( amount ) {
+            this._delayTime = amount;
+            return this;
+        };
+        Tween.prototype.repeat = function( times ) {
+            this._initialRepeat = times;
+            this._repeat = times;
+            return this;
+        };
+        Tween.prototype.repeatDelay = function( amount ) {
+            this._repeatDelayTime = amount;
+            return this;
+        };
+        Tween.prototype.yoyo = function( yoyo ) {
+            this._yoyo = yoyo;
+            return this;
+        };
+        Tween.prototype.easing = function( easingFunction ) {
+            this._easingFunction = easingFunction;
+            return this;
+        };
+        Tween.prototype.interpolation = function( interpolationFunction ) {
+            this._interpolationFunction = interpolationFunction;
+            return this;
+        };
+        Tween.prototype.chain = function( ) {
+            var tweens = [ ];
+            for ( var _i = 0; _i < arguments.length; _i++ ) {
+                tweens[ _i ] = arguments[ _i ];
+            }
+            this._chainedTweens = tweens;
+            return this;
+        };
+        Tween.prototype.onStart = function( callback ) {
+            this._onStartCallback = callback;
+            return this;
+        };
+        Tween.prototype.onUpdate = function( callback ) {
+            this._onUpdateCallback = callback;
+            return this;
+        };
+        Tween.prototype.onRepeat = function( callback ) {
+            this._onRepeatCallback = callback;
+            return this;
+        };
+        Tween.prototype.onComplete = function( callback ) {
+            this._onCompleteCallback = callback;
+            return this;
+        };
+        Tween.prototype.onStop = function( callback ) {
+            this._onStopCallback = callback;
+            return this;
+        };
+        /**
+         * @returns true if the tween is still playing after the update, false
+         * otherwise (calling update on a paused tween still returns true because
+         * it is still playing, just paused).
+         */
+        Tween.prototype.update = function( time, autoStart ) {
+            if ( time === void 0 ) {
+                time = now$1( );
+            }
+            if ( autoStart === void 0 ) {
+                autoStart = true;
+            }
+            if ( this._isPaused )
+                return true;
+            var property;
+            var elapsed;
+            var endTime = this._startTime + this._duration;
+            if ( !this._goToEnd && !this._isPlaying ) {
+                if ( time > endTime )
+                    return false;
+                if ( autoStart )
+                    this.start( time );
+            }
+            this._goToEnd = false;
+            if ( time < this._startTime ) {
+                return true;
+            }
+            if ( this._onStartCallbackFired === false ) {
+                if ( this._onStartCallback ) {
+                    this._onStartCallback( this._object );
+                }
+                this._onStartCallbackFired = true;
+            }
+            elapsed = ( time - this._startTime ) / this._duration;
+            elapsed = this._duration === 0 || elapsed > 1 ? 1 : elapsed;
+            var value = this._easingFunction( elapsed );
+            // properties transformations
+            this._updateProperties( this._object, this._valuesStart, this._valuesEnd, value );
+            if ( this._onUpdateCallback ) {
+                this._onUpdateCallback( this._object, elapsed );
+            }
+            if ( elapsed === 1 ) {
+                if ( this._repeat > 0 ) {
+                    if ( isFinite( this._repeat ) ) {
+                        this._repeat--;
+                    }
+                    // Reassign starting values, restart by making startTime = now
+                    for ( property in this._valuesStartRepeat ) {
+                        if ( !this._yoyo && typeof this._valuesEnd[ property ] === 'string' ) {
+                            this._valuesStartRepeat[ property ] =
+                                // eslint-disable-next-line
+                                // @ts-ignore FIXME?
+                                this._valuesStartRepeat[ property ] + parseFloat( this._valuesEnd[ property ] );
+                        }
+                        if ( this._yoyo ) {
+                            this._swapEndStartRepeatValues( property );
+                        }
+                        this._valuesStart[ property ] = this._valuesStartRepeat[ property ];
+                    }
+                    if ( this._yoyo ) {
+                        this._reversed = !this._reversed;
+                    }
+                    if ( this._repeatDelayTime !== undefined ) {
+                        this._startTime = time + this._repeatDelayTime;
+                    } else {
+                        this._startTime = time + this._delayTime;
+                    }
+                    if ( this._onRepeatCallback ) {
+                        this._onRepeatCallback( this._object );
+                    }
+                    return true;
+                } else {
+                    if ( this._onCompleteCallback ) {
+                        this._onCompleteCallback( this._object );
+                    }
+                    for ( var i = 0, numChainedTweens = this._chainedTweens.length; i < numChainedTweens; i++ ) {
+                        // Make the chained tweens start exactly at the time they should,
+                        // even if the `update()` method was called way past the duration of the tween
+                        this._chainedTweens[ i ].start( this._startTime + this._duration );
+                    }
+                    this._isPlaying = false;
+                    return false;
+                }
+            }
+            return true;
+        };
+        Tween.prototype._updateProperties = function( _object, _valuesStart, _valuesEnd, value ) {
+            for ( var property in _valuesEnd ) {
+                // Don't update properties that do not exist in the source object
+                if ( _valuesStart[ property ] === undefined ) {
+                    continue;
+                }
+                var start = _valuesStart[ property ] || 0;
+                var end = _valuesEnd[ property ];
+                var startIsArray = Array.isArray( _object[ property ] );
+                var endIsArray = Array.isArray( end );
+                var isInterpolationList = !startIsArray && endIsArray;
+                if ( isInterpolationList ) {
+                    _object[ property ] = this._interpolationFunction( end, value );
+                } else if ( typeof end === 'object' && end ) {
+                    // eslint-disable-next-line
+                    // @ts-ignore FIXME?
+                    this._updateProperties( _object[ property ], start, end, value );
+                } else {
+                    // Parses relative end values with start as base (e.g.: +10, -3)
+                    end = this._handleRelativeValue( start, end );
+                    // Protect against non numeric properties.
+                    if ( typeof end === 'number' ) {
+                        // eslint-disable-next-line
+                        // @ts-ignore FIXME?
+                        _object[ property ] = start + ( end - start ) * value;
+                    }
+                }
+            }
+        };
+        Tween.prototype._handleRelativeValue = function( start, end ) {
+            if ( typeof end !== 'string' ) {
+                return end;
+            }
+            if ( end.charAt( 0 ) === '+' || end.charAt( 0 ) === '-' ) {
+                return start + parseFloat( end );
+            } else {
+                return parseFloat( end );
+            }
+        };
+        Tween.prototype._swapEndStartRepeatValues = function( property ) {
+            var tmp = this._valuesStartRepeat[ property ];
+            var endValue = this._valuesEnd[ property ];
+            if ( typeof endValue === 'string' ) {
+                this._valuesStartRepeat[ property ] = this._valuesStartRepeat[ property ] + parseFloat( endValue );
+            } else {
+                this._valuesStartRepeat[ property ] = this._valuesEnd[ property ];
+            }
+            this._valuesEnd[ property ] = tmp;
+        };
+        return Tween;
+    }( ) );
+
+    /**
+     * Tween.js - Licensed under the MIT license
+     * https://github.com/tweenjs/tween.js
+     * ----------------------------------------------
+     *
+     * See https://github.com/tweenjs/tween.js/graphs/contributors for the full list of contributors.
+     * Thank you all, you're awesome!
+     */
+    Sequence.nextId;
     /**
      * Controlling groups of tweens
      *
@@ -42793,7 +44129,618 @@
     }
     var GUI$1 = GUI;
 
-    document.createElementNS( "http://www.w3.org/1999/xhtml", "div" );
+    class Card {
+        constructor( onUse ) {
+            this.use = onUse;
+        }
+        onUse( user ) {
+            this.use( user );
+        }
+        static initDOM( ) {
+            document.body.appendChild( this.card );
+            this.card.style.padding = "5px";
+            this.card.style.fontSize = "25px";
+            this.card.style.position = "absolute";
+            this.card.style.backgroundColor = "white";
+            this.card.style.left = "50%";
+            this.card.style.display = "none";
+            this.added = true;
+        }
+    }
+    Card.card = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" );
+    Card.added = false;
+
+    const cards$1 = {
+        advil: {
+            card: "Advance to Illinois Ave.",
+            function( player ) {
+                player.goToPosition( 24 );
+            },
+            immediate: true
+        },
+        advut: {
+            card: "Advance to nearest utility.\nIf unowned, you may buy from bank.\n If owned, reroll dice and pay owner 10 times the rolled amount.",
+            function( player ) {
+                //set player position to nearest utility based on current position
+            },
+            immediate: true
+        },
+        chair: {
+            card: "You have been elected chairman of the board. Pay each player $50",
+            function( user ) {
+                const players = Globals.players;
+                user.money -= 50 * players.length - 1;
+                for ( const player of players ) {
+                    if ( player !== user )
+                        player.money += 50;
+                }
+            },
+            immediate: true
+        },
+        advgo: {
+            card: "Advance to go",
+            function( player ) {
+                player.goToPosition( 0 );
+            },
+            immediate: true
+        },
+        advrr: {
+            card: "Take a ride on the reading.\n If you pass go, collect $200",
+            function( player ) {
+                player.goToPosition( 5 );
+            },
+            immediate: true
+        },
+        loan: {
+            card: "Your building and loan matures.\n Collect $150",
+            function( player ) {
+                player.money += 150;
+            },
+            immediate: true
+        },
+        bank: {
+            card: "Bank pays you dividend of $50",
+            function( player ) {
+                player.money += 50;
+            },
+            immediate: true
+        },
+        advbw: {
+            card: "Take a walk on the board walk.\nAdvance token to board walk.",
+            function( player ) {
+                player.goToPosition( 39 );
+            },
+            immediate: true
+        },
+        back: {
+            card: "Go back 3 spaces",
+            function( player ) {
+                player.inJail = true;
+                player.moveBackward( 3 ).then( ( ) => {
+                    player.inJail = false;
+                } );
+            },
+            immediate: true
+        },
+        houses: {
+            card: "Because one of your houses wasn't up to code, the roof collapsed and killed someone.\n Go to jail. Go directly to jail, do not pass go, do not collect $200",
+            function( player ) {
+                player.inJail = true;
+                player.goToPosition( 10 );
+            },
+            immediate: true
+        },
+        advnr: {
+            card: "Advance token to the nearest railroad and pay owner twice the rental to which they are entitled.\nIf railroad is unowned, you may buy it from the bank",
+            function( player ) {},
+            immediate: true
+        },
+        advjl: {
+            card: "Go directly to jail.\n Do not pass go, do not collect $200",
+            function( player ) {
+                player.inJail = true;
+                player.goToPosition( 10 );
+            },
+            immediate: true
+        },
+        advnj: {
+            card: "Get out of jail free",
+            function( player ) {
+                player.inJail = false;
+            },
+            immediate: false
+        },
+        poor: {
+            card: "Pay poor tax of $15",
+            function( player ) {
+                player.money -= 15;
+            },
+            immediate: false
+        },
+        advsc: {
+            card: "Advance to St. Charles Place.\nIf you pass go, collect $200",
+            function( player ) {
+                player.goToPosition( 11 );
+            },
+            immediate: true
+        },
+        advrng: {
+            card: "Go to a random spot on the board. If you pass go, collect $200.",
+            function( player ) {
+                player.goToPosition( Math.random( ) * 40 | 0 );
+            },
+            immediate: true
+        }
+    };
+    class ChanceTile {
+        constructor( ) {
+            this.type = "chance";
+        }
+        onLand( player ) {
+            //choose card
+            const k = Object.keys( cards$1 );
+            const card = cards$1[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
+            const dCard = Card.card;
+            if ( !Card.added )
+                Card.initDOM( );
+            dCard.innerText = card.card;
+            dCard.style.display = "block";
+            dCard.style.bottom = "-50px";
+            dCard.style.transform = "translate(-50%, 0%)";
+            new Tween( {
+                h: -50
+            } ).to( {
+                h: 400
+            }, 4500 ).onUpdate( ( {
+                h
+            } ) => {
+                dCard.style.bottom = h + "px";
+            } ).delay( 2000 ).start( ).onComplete( ( ) => {
+                setTimeout( ( ) => {
+                    dCard.style.display = "none";
+                }, 3000 );
+            } );
+        }
+    }
+
+    const cards = {
+        advnj: {
+            card: "Get out of jail, free.",
+            function( player ) {
+                player.inJail = false;
+            },
+            immediate: false
+        },
+        life: {
+            card: "Life insurance matures.\n Collect $100.",
+            function( player ) {
+                player.money += 100;
+            },
+            immediate: true
+        },
+        stock: {
+            card: "From sale of stock, you get $45.",
+            function( player ) {
+                player.money += 45;
+            },
+            immediate: true
+        },
+        belle: {
+            card: "You lost horribly in a beauty contest.\n Pay $50 for entrance fee.",
+            function( player ) {
+                player.money -= 50;
+            },
+            immediate: true
+        },
+        xmas: {
+            card: "You were found stealing toys from children on X-mas.\n Pay $100 for compensation.",
+            function( player ) {
+                player.money -= 100;
+            },
+            immediate: true
+        },
+        tax: {
+            card: "You were convicted of tax evasion.\n Go to jail, go directly to jail, do not pass go, do not collect $200.",
+            function( player ) {
+                player.inJail = true;
+                player.goToPosition( 10 );
+            },
+            immediate: true
+        },
+        opera: {
+            card: "Grand Opera Opening.\n Collect $50 from every player.",
+            function( player ) {
+                const players = Globals.players;
+                for ( const opp of players ) {
+                    opp.money -= 50;
+                    player.money += 50;
+                }
+            },
+            immediate: true
+        },
+        hosp: {
+            card: "You broke your ankle. Pay hospital bill of $150.",
+            function( player ) {
+                player.money -= 150;
+            },
+            immediate: true
+        },
+        school: {
+            card: "You bought books for a student. Pay $10.",
+            function( player ) {
+                player.money -= 10;
+            },
+            immediate: true
+        },
+        repairs: {
+            card: "Housing market soars.\n Collect $100.",
+            function( player ) {
+                player.money += 100;
+            },
+            immediate: true
+        },
+        bank: {
+            card: "Bank error really in your favor. Collect $350",
+            function( player ) {
+                player.money += 350;
+            },
+            immediate: true
+        },
+        marriage: {
+            card: "You got married and then robbed blind.\n You lose $400",
+            function( player ) {
+                player.money -= 400;
+            },
+            immediate: true
+        },
+        inherit: {
+            card: "You inherit $500",
+            function( player ) {
+                player.money += 500;
+            },
+            immediate: true
+        },
+        advjl: {
+            card: "Go to jail. Go directly to jail.\n Do not pass go, do not collect $200",
+            function( player ) {
+                player.inJail = true;
+                player.goToPosition( 10 );
+            },
+            immediate: true
+        },
+        jackpot: {
+            card: "You got a lottery ticket.\n You have a 1 / 1000 chance that you win $1000, otherwise, you lose $10",
+            function( player ) {
+                player.money += Number( ( Math.random( ) * 1000 | 0 ) == 234 ) * 1000;
+            },
+            immediate: true
+        }
+    };
+    class CommunityChest {
+        constructor( ) {
+            this.type = "community chest";
+        }
+        onLand( player ) {
+            const k = Object.keys( cards );
+            const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
+            const dCard = Card.card;
+            if ( !Card.added )
+                Card.initDOM( );
+            dCard.innerText = card.card;
+            dCard.style.display = "block";
+            dCard.style.bottom = "-50px";
+            dCard.style.transform = "translate(-50%, 0%)";
+            new Tween( {
+                h: -50
+            } ).to( {
+                h: 400
+            }, 4500 ).onUpdate( ( {
+                h
+            } ) => {
+                dCard.style.bottom = h + "px";
+            } ).delay( 2000 ).start( ).onComplete( ( ) => {
+                setTimeout( ( ) => {
+                    dCard.style.display = "none";
+                }, 3000 );
+            } );
+        }
+    }
+
+    class FreeParking {
+        constructor( ) {
+            this.type = "special";
+        }
+        onLand( player ) {}
+    }
+
+    class GoTile {
+        constructor( ) {
+            this.type = "special";
+        }
+        onLand( player ) {
+            player.money += 100;
+        }
+    }
+
+    class GoToJail {
+        constructor( ) {
+            this.type = "special";
+            this.jailed = null;
+        }
+        onLand( player ) {
+            if ( this.jailed )
+                this.jailed.inJail = false;
+            this.jailed = player;
+            player.inJail = true;
+            player.goToPosition( 10 );
+        }
+    }
+
+    const B_BUTTON = 0;
+    const A_BUTTON = 1;
+    const X_BUTTON = 3;
+
+    class Property {
+        constructor( cost, rent ) {
+            this.numHouses = 0;
+            this.mortaged = false;
+            this.type = "property";
+            this.rent = rent;
+            this.cost = cost;
+            this.owner = null;
+        }
+        onLand( player ) {
+            const scope = this;
+            if ( !this.owner ) {
+                if ( player.money >= this.cost ) {
+                    player.awaitButtonPress( [ B_BUTTON, A_BUTTON ] ).then( button => {
+                        if ( button == 1 ) {
+                            player.money -= scope.cost;
+                            scope.owner = player;
+                            player.properties.push( scope );
+                            player.propertyCount++;
+                        }
+                    } );
+                }
+            } else if ( this.owner !== player ) {
+                if ( this.owner.inJail )
+                    return;
+                this.owner.awaitButtonPressFor( [ X_BUTTON ], 20000 ).then( ( ) => {
+                    player.money -= scope.rent;
+                    scope.owner.money += scope.rent;
+                } ).catch( ( ) => {
+                    console.log( scope.owner.name + " Forgot to collect on their rent" );
+                } );
+            }
+        }
+    }
+
+    class TaxTile {
+        constructor( tax ) {
+            this.type = "special";
+            this.tax = tax;
+        }
+        onLand( player ) {
+            player.money -= this.tax;
+        }
+    }
+
+    class Globals {
+        constructor( ) {
+            throw "Cannot create a Globals instance";
+        }
+    }
+    Globals.players = [ ];
+    Globals.tiles = [
+        new GoTile( ),
+        new Property( 60, 4 ),
+        new CommunityChest( ),
+        new Property( 60, 2 ),
+        new TaxTile( 200 ),
+        new Property( 200, 50 ),
+        new Property( 100, 6 ),
+        new ChanceTile( ),
+        new Property( 100, 6 ),
+        new Property( 120, 8 ),
+        new FreeParking( ),
+        new Property( 140, 10 ),
+        new Property( 150, 75 ),
+        new Property( 140, 10 ),
+        new Property( 160, 12 ),
+        new Property( 200, 75 ),
+        new Property( 180, 14 ),
+        new Property( 180, 14 ),
+        new CommunityChest( ),
+        new Property( 100, 16 ),
+        new FreeParking( ),
+        new Property( 220, 18 ),
+        new ChanceTile( ),
+        new Property( 220, 18 ),
+        new Property( 240, 20 ),
+        new Property( 200, 125 ),
+        new Property( 260, 22 ),
+        new Property( 260, 22 ),
+        new Property( 150, 75 ),
+        new Property( 280, 24 ),
+        new GoToJail( ),
+        new Property( 300, 26 ),
+        new Property( 300, 26 ),
+        new CommunityChest( ),
+        new Property( 320, 28 ),
+        new Property( 200, 200 ),
+        new ChanceTile( ),
+        new Property( 350, 35 ),
+        new TaxTile( 75 ),
+        new Property( 400, 50 )
+    ];
+    Globals.v0 = new Vector3( );
+    Globals.v1 = new Vector3( );
+    Globals.q0 = new Quaternion$1( );
+    Globals.q1 = new Quaternion$1( );
+    Globals.fromIObj = {
+        a: 0
+    };
+    Globals.toIObj = {
+        a: 1
+    };
+
+    //go = 0, mediteranean = .0333, CC1 = .0570, baltic = 0.0810, income = .1046, RR = 0.1280, oriental = 0.153, Chance1 = .1767, vermont = .2010, connecticut = .2245
+    //jail = .255, charles = .2830, eclec = .3070, states = .3300, virginia = .3550, PR = .38, james = .403, CC2 = .426, tennessee = .451, NY = .475
+    //FP = .5, kent = .5333, Chance2 = 0.557, ind = .5815, ill = .6047, BOR = 6290, atlas = .652, vernot = .6765, tears = .7, topiary = .724,
+    //Wee Woo = .754, Ocean = .7820, NC = .8065, CC3 = .831, Penn = .855, SL = .8795, Chance3 = .903, trees = .9265, marriage = .9505, planks = .975
+    const tilePositions = [
+        0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
+        .5000, .5333, .5570, .5815, .6047, .6290, .6520, .6765, .7000, .7240, .7540, .7820, .8065, .8310, .8550, .8795, .9030, .9265, .9505, .9750
+    ];
+    const curve = new CatmullRomCurve3( [
+        new Vector3( 625, 0, 600 ),
+        new Vector3( 600, 0, 625 ),
+        new Vector3( -600, 0, 625 ),
+        new Vector3( -625, 0, 600 ),
+        new Vector3( -625, 0, -600 ),
+        new Vector3( -600, 0, -625 ),
+        new Vector3( 600, 0, -625 ),
+        new Vector3( 625, 0, -600 )
+    ], true );
+    const v0$1 = new Vector3( );
+    new Vector3( );
+    new Quaternion$1( );
+    new Quaternion$1( );
+    class Player {
+        constructor( gamepad, name, token ) {
+            this.money = 1500;
+            this.propertyCount = 0;
+            this.properties = [ ];
+            this.inJail = false;
+            this.chanceCard = null;
+            this.communityChestCard = null;
+            this.currentPos = 0;
+            this.statsPanel = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" );
+            this.gamepad = gamepad;
+            this.name = name;
+            this.statsPanel.className = "stats";
+            this.token = token;
+            curve.getPointAt( 0, this.token.position );
+            curve.getPointAt( 0.01, v0$1 );
+            this.token.lookAt( v0$1 );
+        }
+        awaitButtonPress( allowedButtons ) {
+            const scope = this;
+            const p = new Promise( ( resolve, reject ) => {
+                const int = setInterval( ( ) => {
+                    for ( const button of allowedButtons ) {
+                        if ( scope.gamepad.buttons[ button ].pressed ) {
+                            clearInterval( int );
+                            resolve( button );
+                        }
+                    }
+                }, 17 );
+            } );
+            return p;
+        }
+        awaitButtonPressFor( allowedButtons, timeoutMs ) {
+            const scope = this;
+            const p = new Promise( ( resolve, reject ) => {
+                const i = setInterval( ( ) => {
+                    for ( const button of allowedButtons ) {
+                        if ( scope.gamepad.buttons[ button ].pressed ) {
+                            clearInterval( i );
+                            clearTimeout( t );
+                            resolve( button );
+                        }
+                    }
+                }, 17 );
+                const t = setTimeout( ( ) => {
+                    clearInterval( i );
+                    clearTimeout( t );
+                    reject( "Took Too long to press button" );
+                }, timeoutMs );
+            } );
+            return p;
+        }
+        updateStats( ) {}
+        hideStats( ) {}
+        showStats( ) {}
+        goToPosition( position ) {
+            const currentT = tilePositions[ this.currentPos ];
+            let intT = tilePositions[ position ];
+            const scope = this;
+            if ( intT < currentT ) {
+                intT++;
+                if ( !this.inJail )
+                    this.money += 200;
+            }
+            const {
+                camera,
+                v0,
+                v1,
+                q0,
+                q1,
+                fromIObj,
+                toIObj
+            } = Globals;
+            const p = new Promise( ( resolve ) => {
+                v1.set( 200, 100, 0 );
+                this.token.localToWorld( v1 );
+                v0.copy( camera.position );
+                camera.lookAt( 0, 0, 0 );
+                q0.copy( camera.quaternion );
+                camera.position.copy( v1 );
+                camera.lookAt( this.token.position );
+                q1.copy( camera.quaternion );
+                fromIObj.a = 0;
+                toIObj.a = 1;
+                const camToTokenTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                    a
+                } ) => {
+                    camera.position.lerpVectors( v0, v1, a );
+                    camera.quaternion.slerpQuaternions( q0, q1, a );
+                } ).onComplete( ( ) => {
+                    fromIObj.a = currentT;
+                    toIObj.a = intT;
+                    scope.token.add( camera );
+                    camera.position.set( 200, 100, 0 );
+                    camera.lookAt( scope.token.position );
+                    tokenToSpaceTween.start( );
+                } ).easing( Easing.Quadratic.InOut );
+                const tokenToSpaceTween = new Tween( fromIObj ).to( toIObj, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1500 ).onUpdate( ( {
+                    a
+                } ) => {
+                    curve.getPointAt( a % 1, scope.token.position );
+                    curve.getPointAt( ( a + 0.01 ) % 1, v0 );
+                    scope.token.lookAt( v0 );
+                } ).onComplete( ( ) => {
+                    scope.currentPos = position;
+                    scope.token.remove( camera );
+                    scope.token.localToWorld( camera.position );
+                    v0.copy( camera.position );
+                    camera.lookAt( scope.token.position );
+                    q0.copy( camera.quaternion );
+                    v1.set( 0, 975, 0 );
+                    q1.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
+                    fromIObj.a = 0;
+                    toIObj.a = 1;
+                    camToOrigTween.start( );
+                } ).delay( 500 ).easing( Easing.Sinusoidal.InOut );
+                const camToOrigTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                    a
+                } ) => {
+                    camera.position.lerpVectors( v0, v1, a );
+                    camera.quaternion.slerpQuaternions( q0, q1, a );
+                } ).delay( 500 ).easing( Easing.Quadratic.InOut ).onComplete( ( ) => {
+                    resolve( scope );
+                } );
+                camToTokenTween.start( );
+            } );
+            return p;
+        }
+        moveForward( spaces ) {
+            return this.goToPosition( this.currentPos + spaces );
+        }
+        moveBackward( spaces ) {
+            return this.goToPosition( this.currentPos - spaces );
+        }
+    }
 
     /**
      * Records what objects are colliding with each other
@@ -47529,15 +49476,15 @@
 
                 for ( let i = 1; !result.shouldStop && i < face.length - 1; i++ ) {
                     // Transform 3 vertices to world coords
-                    b.copy( vertices[ face[ i ] ] );
+                    b$1.copy( vertices[ face[ i ] ] );
                     c$1.copy( vertices[ face[ i + 1 ] ] );
-                    q.vmult( b, b );
+                    q.vmult( b$1, b$1 );
                     q.vmult( c$1, c$1 );
-                    x.vadd( b, b );
+                    x.vadd( b$1, b$1 );
                     x.vadd( c$1, c$1 );
                     const distance = intersectPoint.distanceTo( from );
 
-                    if ( !( Ray.pointInTriangle( intersectPoint, a, b, c$1 ) || Ray.pointInTriangle( intersectPoint, b, a, c$1 ) ) || distance > fromToDistance ) {
+                    if ( !( Ray.pointInTriangle( intersectPoint, a, b$1, c$1 ) || Ray.pointInTriangle( intersectPoint, b$1, a, c$1 ) ) || distance > fromToDistance ) {
                         continue;
                     }
 
@@ -47612,11 +49559,11 @@
                 localDirection.scale( scalar, intersectPoint );
                 intersectPoint.vadd( localFrom, intersectPoint ); // Get triangle vertices
 
-                mesh.getVertex( indices[ trianglesIndex * 3 + 1 ], b );
+                mesh.getVertex( indices[ trianglesIndex * 3 + 1 ], b$1 );
                 mesh.getVertex( indices[ trianglesIndex * 3 + 2 ], c$1 );
                 const squaredDistance = intersectPoint.distanceSquared( localFrom );
 
-                if ( !( Ray.pointInTriangle( intersectPoint, b, a, c$1 ) || Ray.pointInTriangle( intersectPoint, a, b, c$1 ) ) || squaredDistance > fromToDistanceSquared ) {
+                if ( !( Ray.pointInTriangle( intersectPoint, b$1, a, c$1 ) || Ray.pointInTriangle( intersectPoint, a, b$1, c$1 ) ) || squaredDistance > fromToDistanceSquared ) {
                     continue;
                 } // transform intersectpoint and normal to world
 
@@ -47704,7 +49651,7 @@
     const intersectBody_qi = new Quaternion( );
     const intersectPoint = new Vec3( );
     const a = new Vec3( );
-    const b = new Vec3( );
+    const b$1 = new Vec3( );
     const c$1 = new Vec3( );
     new Vec3( );
     new RaycastResult( );
@@ -51440,24 +53387,31 @@
                 body
             } = this;
             body.position.set( 0, 50, 0 );
-            body.velocity.set( Math.random( ) - 0.5, Math.random( ), Math.random( ) - 0.5 ).scale( 50, body.velocity );
-            body.angularVelocity.set( Math.random( ) - 0.5, Math.random( ) - 0.5, Math.random( ) - 0.5 ).scale( 75, body.angularVelocity );
+            const linMult = 50,
+                angMult = 75;
+            body.velocity.set( ( Math.random( ) - 0.5 ) * linMult, Math.random( ) * linMult, ( Math.random( ) - 0.5 ) * linMult );
+            body.angularVelocity.set( ( Math.random( ) - 0.5 ) * angMult, ( Math.random( ) - 0.5 ) * angMult, ( Math.random( ) - 0.5 ) * angMult );
             mesh.position.set( 0, 50, 0 );
         }
         static init( ) {
-            const world = new World( );
+            const world = new World( {
+                allowSleep: true
+            } );
             world.gravity.set( 0, -100, 0 );
+            world.defaultContactMaterial.friction = 10;
+            world.defaultContactMaterial.restitution = 0.75;
             const size = 100;
             const size5 = size - 0.5;
             const body = new Body( {
-                mass: 0
+                mass: 0,
+                position: new Vec3( 0, size + 5, 0 )
             } );
             body.addShape( new Box( new Vec3( size, 0.5, size ) ), new Vec3( 0, -size5, 0 ) );
             body.addShape( new Box( new Vec3( size, 0.5, size ) ), new Vec3( 0, size5, 0 ) );
-            body.addShape( new Box( new Vec3( 0.5, size, size ) ), new Vec3( 0, 0, -size5 ) );
-            body.addShape( new Box( new Vec3( 0.5, size, size ) ), new Vec3( 0, 0, size5 ) );
-            body.addShape( new Box( new Vec3( size, size, 0.5 ) ), new Vec3( -size5, 0, 0 ) );
-            body.addShape( new Box( new Vec3( size, size, 0.5 ) ), new Vec3( size5, 0, 0 ) );
+            body.addShape( new Box( new Vec3( 0.5, size, size ) ), new Vec3( -size5, 0, 0 ) );
+            body.addShape( new Box( new Vec3( 0.5, size, size ) ), new Vec3( size5, 0, 0 ) );
+            body.addShape( new Box( new Vec3( size, size, 0.5 ) ), new Vec3( 0, 0, -size5 ) );
+            body.addShape( new Box( new Vec3( size, size, 0.5 ) ), new Vec3( 0, 0, size5 ) );
             world.addBody( body );
             this.world = world;
         }
@@ -51489,8 +53443,58 @@
                 return;
             this.world.step( 1 / 60, this.clock.getDelta( ), 4 );
             for ( const die of this.dice ) {
+                if ( die.body.sleepState == BODY_SLEEP_STATES.SLEEPING )
+                    die.body.wakeUp( );
                 die.update( );
             }
+        }
+        static readDice( ) {
+            let t = 0,
+                n = 0;
+            const scope = this;
+            const p = new Promise( ( resolve, reject ) => {
+                for ( const die of scope.dice ) {
+                    function onSleep( ) {
+                        t += die.getFace( );
+                        n++;
+                        die.body.removeEventListener( "sleep", onSleep );
+                        if ( n == scope.dice.length )
+                            resolve( t );
+                    }
+                    die.body.addEventListener( "sleep", onSleep );
+                }
+            } );
+            return p;
+        }
+        static rollDice( ) {
+            const scope = this;
+            const {
+                camera,
+                v0,
+                v1,
+                q0,
+                q1,
+                fromIObj,
+                toIObj
+            } = Globals;
+            fromIObj.a = 0;
+            toIObj.a = 1;
+            v0.copy( camera.position );
+            v1.setScalar( 150 );
+            q0.copy( camera.quaternion );
+            q1.set( -0.27984814233312133, 0.3647051996310009, 0.11591689595929514, 0.8804762392171493 );
+            const p = new Promise( ( resolve, reject ) => {
+                new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                    a
+                } ) => {
+                    camera.position.lerpVectors( v0, v1, a );
+                    camera.quaternion.slerpQuaternions( q0, q1, a );
+                } ).onComplete( ( ) => {
+                    scope.roll( );
+                    scope.readDice( ).then( resolve );
+                } ).start( );
+            } );
+            return p;
         }
     }
     Dice.dice = [ ];
@@ -51501,26 +53505,44 @@
     const {
         innerWidth: s,
         innerHeight: d
-    } = window, l = new WebGLRenderer, m = ( l.setSize( s, d ), l.setClearColor( 12571109 ), document.body.appendChild( l.domElement ), new Scene ), _ = new PerspectiveCamera( 75, s / d, 100, 3e3 ), c = ( _.position.y = 1e3, _.position.x = 2e3, new DirectionalLight ), p = ( m.add( c ), new PMREMGenerator( l ) ), h = new GLTFLoader, u = new Group$1;
+    } = window, m = new WebGLRenderer, c = ( m.setSize( s, d ), m.setClearColor( 12571109 ), document.body.appendChild( m.domElement ), new Scene ), u = new PerspectiveCamera( 75, s / d, 100, 3e3 ), _ = ( u.position.y = 1e3, u.position.x = 2e3, Globals.camera = u, new DirectionalLight ), w = ( c.add( _ ), new PMREMGenerator( m ) ), h = new LoadingManager, b = new GLTFLoader( h ), p = {
+        tokens: {
+            hat: null,
+            iron: null,
+            barrow: null,
+            thimble: null
+        },
+        board: null
+    };
     new GUI$1;
-    const g = ( h.load( "../die.glb", e => {
+    const f = ( b.load( "../die.glb", e => {
         Dice.init( );
-        e = e.scene.getObjectByName( "Box001_Material_#25_0" );
-        const t = Dice.createDie( e );
-        m.add( t.getMesh( ) ), t.roll( );
-    } ), h.load( "../board.glb", e => {
-        for ( const t of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
-            const o = e.scene.getObjectByName( t );
-            o.geometry.rotateX( -Math.PI / 2 ), o.geometry.rotateY( Math.PI / 2 ), u.add( o );
+        const t = e.scene.getObjectByName( "Box001_Material_#25_0" );
+        t.geometry.center( ), c.add( Dice.createDie( t ).getMesh( ) ), c.add( Dice.createDie( ).getMesh( ) );
+    } ), b.load( "../board.glb", e => {
+        const t = [ ];
+        for ( const o of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
+            const a = e.scene.getObjectByName( o );
+            a.geometry.rotateX( -Math.PI / 2 ), a.geometry.rotateY( Math.PI / 2 ), c.add( a ), t.push( a );
         }
-        _.position.set( 0, 975, 0 ), _.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), u.add( e.scene.getObjectByName( "Board_01_-_Default_0" ) ), u.children[ 4 ].geometry.rotateX( -Math.PI / 2 ), u.children[ 4 ].position.z = -5, m.add( u );
-    } ), new RGBELoader );
+        p.tokens.hat = t[ 0 ], p.tokens.iron = t[ 1 ], p.tokens.barrow = t[ 2 ], p.tokens.thimble = t[ 3 ], p.tokens.barrow.visible = p.tokens.thimble.visible = !1, u.position.set( 0, 975, 0 ), u.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), p.board = e.scene.getObjectByName( "Board_01_-_Default_0" ), p.board.geometry.rotateX( -Math.PI / 2 ), p.board.position.z = -10, c.add( p.board );
+    } ), h.onLoad = async function( ) {
+        const t = new Player( null, "Daniel", p.tokens.iron ),
+            o = new Player( null, "Nate", p.tokens.hat );
+        for ( let e = 0; e < 5; e++ ) await t.moveForward( await Dice.rollDice( ) ), await y( 500 ), await o.moveForward( await Dice.rollDice( ) ), await y( 500 );
+    }, new RGBELoader );
 
-    function w( ) {
-        update( ), Dice.update( ), l.render( m, _ ), requestAnimationFrame( w );
+    function D( ) {
+        update( ), Dice.update( ), m.render( c, u ), requestAnimationFrame( D );
     }
-    g.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
-        m.environment = p.fromEquirectangular( e ).texture;
-    } ), w( );
+
+    function y( t ) {
+        return new Promise( e => {
+            setTimeout( e, t );
+        } )
+    }
+    f.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
+        c.environment = w.fromEquirectangular( e ).texture;
+    } ), D( );
 
 } )( );

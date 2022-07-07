@@ -74,9 +74,10 @@ const cards = {
         immediate: true
     },
     houses: {
-        card: "Housing market crashes and burns.\n Lose $250",
+        card: "Because one of your houses wasn't up to code, the roof collapsed and killed someone.\n Go to jail. Go directly to jail, do not pass go, do not collect $200",
         function(player) {
-            player.money -= 250;
+            player.inJail = true;
+            player.goToPosition(10);
         },
         immediate: true
     },

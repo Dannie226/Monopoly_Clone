@@ -43,7 +43,7 @@ const fromIObj = {
 };
 const toIObj = {
     a: 1
-}
+};
 export class Player {
     public gamepad: Gamepad;
     public token: THREE.Mesh;
@@ -119,13 +119,22 @@ export class Player {
     goToPosition( position: number ): Promise < Player > {
         const currentT = tilePositions[ this.currentPos ];
         let intT = tilePositions[ position ];
-        const scope = this,
-            camera = Globals.camera;
+        const scope = this;
 
         if ( intT < currentT ) {
             intT++;
             if ( !this.inJail ) this.money += 200;
         }
+
+        const {
+            camera,
+            v0,
+            v1,
+            q0,
+            q1,
+            fromIObj,
+            toIObj
+        } = Globals;
         const p = new Promise < Player > ( ( resolve ) => {
             v1.set( 200, 100, 0 );
             this.token.localToWorld( v1 );

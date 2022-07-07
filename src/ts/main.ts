@@ -50,63 +50,71 @@ scene.add( dLight );
 
 const pmrem = new THREE.PMREMGenerator( renderer );
 
-const loader = new GLTFLoader( );
-
-const pieces = new THREE.Group( );
+const manager = new THREE.LoadingManager( );
+const loader = new GLTFLoader( manager );
+const assets = {
+    tokens: {
+        hat: null as THREE.Mesh,
+        iron: null as THREE.Mesh,
+        barrow: null as THREE.Mesh,
+        thimble: null as THREE.Mesh
+    },
+    board: null as THREE.Mesh
+}
 
 //eslint-disable-next-line no-unused-vars
 const gui = new GUI( );
 
 //eslint-disable-next-line no-unused-vars
-const controls = new OrbitControls(camera, renderer.domElement);
+// const controls = new OrbitControls( camera, renderer.domElement );
 
 loader.load( "../die.glb", ( gltf ) => {
     Dice.init( );
     const dieMesh = gltf.scene.getObjectByName( "Box001_Material_#25_0" ) as THREE.Mesh;
-    dieMesh.geometry.center();
-    dieMesh.geometry.computeBoundingBox();
-    const s = dieMesh.geometry.boundingBox.getSize(new THREE.Vector3);
-    console.log(s.x, s.y, s.z);
+    dieMesh.geometry.center( );
     scene.add( Dice.createDie( dieMesh ).getMesh( ) );
-    scene.add(Dice.createDie().getMesh());
-    Dice.roll();
+    scene.add( Dice.createDie( ).getMesh( ) );
 } );
 
 loader.load( "../board.glb", ( gltf ) => {
-    const names = [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ]
+    const names = [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ];
+    const tokens: THREE.Mesh[ ] = [ ];
     for ( const name of names ) {
-        const o = gltf.scene.getObjectByName( name );
-        ( o as THREE.Mesh ).geometry.rotateX( -Math.PI / 2 );
-        ( o as THREE.Mesh ).geometry.rotateY( Math.PI / 2 );
-        pieces.add( o );
+        const o = gltf.scene.getObjectByName( name ) as THREE.Mesh;
+        o.geometry.rotateX( -Math.PI / 2 );
+        o.geometry.rotateY( Math.PI / 2 );
+        scene.add( o );
+        tokens.push( o );
     }
+
+    assets.tokens.hat = tokens[ 0 ];
+    assets.tokens.iron = tokens[ 1 ];
+    assets.tokens.barrow = tokens[ 2 ];
+    assets.tokens.thimble = tokens[ 3 ];
+
+    assets.tokens.barrow.visible = assets.tokens.thimble.visible = false;
 
     camera.position.set( 0, 975, 0 );
     camera.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
 
-    // const p = new Player( null, "Daniel", pieces.children[ 1 ] as THREE.Mesh );
-    // const h = new Player( null, "Nate", pieces.children[ 0 ] as THREE.Mesh );
+    assets.board = gltf.scene.getObjectByName( "Board_01_-_Default_0" ) as THREE.Mesh;
+    assets.board.geometry.rotateX( -Math.PI / 2 );
+    assets.board.position.z = -10;
 
-    // p.goToPosition( 11 ).then( ( ) => {
-    //     setTimeout( ( ) => {
-    //         p.goToPosition( 10 ).then( ( ) => {
-    //             p.moveBackward( 3 ).then( ( ) => {
-    //                 p.moveForward( 8 ).then( ( ) => {
-    //                     h.goToPosition( 25 );
-    //                 } );
-    //             } );
-    //         } );
-    //     }, 3000 );
-    // } )
-
-    pieces.add( gltf.scene.getObjectByName( "Board_01_-_Default_0" ) );
-    ( pieces.children[ 4 ] as THREE.Mesh ).geometry.rotateX( -Math.PI / 2 );
-    pieces.children[ 4 ].position.z = -5;
-
-    scene.add( pieces );
+    scene.add( assets.board );
 } );
 
+manager.onLoad = async function( ) {
+    const p = new Player( null, "Daniel", assets.tokens.iron );
+    const h = new Player( null, "Nate", assets.tokens.hat );
 
+    for ( let i = 0; i < 5; i++ ) {
+        await p.moveForward( await Dice.rollDice( ) );
+        await wait( 500 );
+        await h.moveForward( await Dice.rollDice( ) );
+        await wait( 500 );
+    }
+}
 
 const hdrLoader = new RGBELoader( );
 hdrLoader.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( texture ) {
@@ -121,3 +129,9 @@ function animate( ) {
     requestAnimationFrame( animate );
 }
 animate( );
+
+function wait( ms: number ) {
+    return new Promise( ( resolve ) => {
+        setTimeout( resolve, ms );
+    } )
+}

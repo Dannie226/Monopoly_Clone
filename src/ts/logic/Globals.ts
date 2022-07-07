@@ -26,6 +26,8 @@ import {
     Tile
 } from "./Tile";
 
+import * as THREE from "three";
+
 export class Globals {
     private constructor( ) {
         throw "Cannot create a Globals instance";
@@ -77,4 +79,15 @@ export class Globals {
         new TaxTile( 75 ),
         new Property( 400, 50 )
     ]
+
+    public static v0 = new THREE.Vector3( );
+    public static v1 = new THREE.Vector3( );
+    public static q0 = new THREE.Quaternion( );
+    public static q1 = new THREE.Quaternion( );
+    public static fromIObj = {
+        a: 0
+    };
+    public static toIObj = {
+        a: 1
+    }
 }

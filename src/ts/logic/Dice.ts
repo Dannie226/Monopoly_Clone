@@ -1,5 +1,11 @@
 import * as CANNON from "cannon-es"
 import * as THREE from "three";
+import {
+    Tween
+} from "../../libs/tween";
+import {
+    Globals
+} from "./Globals";
 
 export class Dice {
     private static world: CANNON.World;
@@ -66,17 +72,20 @@ export class Dice {
 
         body.position.set( 0, 50, 0 );
 
-        const linMult = 50, angMult = 75;
+        const linMult = 50,
+            angMult = 75;
 
-        body.velocity.set( (Math.random( ) - 0.5) * linMult, Math.random( ) * linMult, (Math.random( ) - 0.5) * linMult );
+        body.velocity.set( ( Math.random( ) - 0.5 ) * linMult, Math.random( ) * linMult, ( Math.random( ) - 0.5 ) * linMult );
 
-        body.angularVelocity.set( (Math.random( ) - 0.5) * angMult, (Math.random( ) - 0.5) * angMult, (Math.random( ) - 0.5) * angMult );
+        body.angularVelocity.set( ( Math.random( ) - 0.5 ) * angMult, ( Math.random( ) - 0.5 ) * angMult, ( Math.random( ) - 0.5 ) * angMult );
 
         mesh.position.set( 0, 50, 0 );
     }
 
     public static init( ) {
-        const world = new CANNON.World( );
+        const world = new CANNON.World( {
+            allowSleep: true
+        } );
         world.gravity.set( 0, -100, 0 );
 
         world.defaultContactMaterial.friction = 10;
@@ -87,7 +96,7 @@ export class Dice {
 
         const body = new CANNON.Body( {
             mass: 0,
-            position:new CANNON.Vec3(0, size + 5, 0)
+            position: new CANNON.Vec3( 0, size + 5, 0 )
         } );
 
         body.addShape(
@@ -160,11 +169,60 @@ export class Dice {
         this.world.step( 1 / 60, this.clock.getDelta( ), 4 );
 
         for ( const die of this.dice ) {
+            if ( die.body.sleepState == CANNON.BODY_SLEEP_STATES.SLEEPING ) die.body.wakeUp( );
             die.update( );
         }
     }
 
-    public static getWorld(){
-        return this.world;
+    public static readDice( ) {
+        let t = 0,
+            n = 0;
+        const scope = this;
+        const p = new Promise < number > ( ( resolve, reject ) => {
+            for ( const die of scope.dice ) {
+                function onSleep( ) {
+                    t += die.getFace( );
+                    n++;
+                    die.body.removeEventListener( "sleep", onSleep )
+                    if ( n == scope.dice.length ) resolve( t );
+                }
+
+                die.body.addEventListener( "sleep", onSleep );
+            }
+        } );
+        return p;
+    }
+
+    public static rollDice( ) {
+        const scope = this;
+        const {
+            camera,
+            v0,
+            v1,
+            q0,
+            q1,
+            fromIObj,
+            toIObj
+        } = Globals;
+        fromIObj.a = 0;
+        toIObj.a = 1;
+        v0.copy( camera.position );
+        v1.setScalar( 150 );
+        q0.copy( camera.quaternion );
+        q1.set( -0.27984814233312133, 0.3647051996310009, 0.11591689595929514, 0.8804762392171493 );
+
+        const p = new Promise < number > ( ( resolve, reject ) => {
+            new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                a
+            } ) => {
+                camera.position.lerpVectors( v0, v1, a );
+                camera.quaternion.slerpQuaternions( q0, q1, a );
+            } ).onComplete( ( ) => {
+                scope.roll( );
+                scope.readDice( ).then( resolve );
+            } ).start( );
+        } );
+
+        return p;
     }
 }

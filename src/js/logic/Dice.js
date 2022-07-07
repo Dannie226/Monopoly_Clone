@@ -1,5 +1,7 @@
 import * as CANNON from "cannon-es";
 import * as THREE from "three";
+import { Tween } from "../../libs/tween";
+import { Globals } from "./Globals";
 export class Dice {
     constructor(mesh, body) {
         this.mesh = mesh;
@@ -41,7 +43,9 @@ export class Dice {
         mesh.position.set(0, 50, 0);
     }
     static init() {
-        const world = new CANNON.World();
+        const world = new CANNON.World({
+            allowSleep: true
+        });
         world.gravity.set(0, -100, 0);
         world.defaultContactMaterial.friction = 10;
         world.defaultContactMaterial.restitution = 0.75;
@@ -49,7 +53,7 @@ export class Dice {
         const size5 = size - 0.5;
         const body = new CANNON.Body({
             mass: 0,
-            position: new CANNON.Vec3(0, size, 0)
+            position: new CANNON.Vec3(0, size + 5, 0)
         });
         body.addShape(new CANNON.Box(new CANNON.Vec3(size, 0.5, size)), new CANNON.Vec3(0, -size5, 0));
         body.addShape(new CANNON.Box(new CANNON.Vec3(size, 0.5, size)), new CANNON.Vec3(0, size5, 0));
@@ -89,11 +93,47 @@ export class Dice {
             return;
         this.world.step(1 / 60, this.clock.getDelta(), 4);
         for (const die of this.dice) {
+            if (die.body.sleepState == CANNON.BODY_SLEEP_STATES.SLEEPING)
+                die.body.wakeUp();
             die.update();
         }
     }
-    static getWorld() {
-        return this.world;
+    static readDice() {
+        let t = 0, n = 0;
+        const scope = this;
+        const p = new Promise((resolve, reject) => {
+            for (const die of scope.dice) {
+                function onSleep() {
+                    t += die.getFace();
+                    n++;
+                    die.body.removeEventListener("sleep", onSleep);
+                    if (n == scope.dice.length)
+                        resolve(t);
+                }
+                die.body.addEventListener("sleep", onSleep);
+            }
+        });
+        return p;
+    }
+    static rollDice() {
+        const scope = this;
+        const { camera, v0, v1, q0, q1, fromIObj, toIObj } = Globals;
+        fromIObj.a = 0;
+        toIObj.a = 1;
+        v0.copy(camera.position);
+        v1.setScalar(150);
+        q0.copy(camera.quaternion);
+        q1.set(-0.27984814233312133, 0.3647051996310009, 0.11591689595929514, 0.8804762392171493);
+        const p = new Promise((resolve, reject) => {
+            new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
+                camera.position.lerpVectors(v0, v1, a);
+                camera.quaternion.slerpQuaternions(q0, q1, a);
+            }).onComplete(() => {
+                scope.roll();
+                scope.readDice().then(resolve);
+            }).start();
+        });
+        return p;
     }
 }
 Dice.dice = [];

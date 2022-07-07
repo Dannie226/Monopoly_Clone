@@ -90,12 +90,13 @@ export class Player {
     goToPosition(position) {
         const currentT = tilePositions[this.currentPos];
         let intT = tilePositions[position];
-        const scope = this, camera = Globals.camera;
+        const scope = this;
         if (intT < currentT) {
             intT++;
             if (!this.inJail)
                 this.money += 200;
         }
+        const { camera, v0, v1, q0, q1, fromIObj, toIObj } = Globals;
         const p = new Promise((resolve) => {
             v1.set(200, 100, 0);
             this.token.localToWorld(v1);

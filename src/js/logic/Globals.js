@@ -5,6 +5,7 @@ import { GoTile } from "./GoTile";
 import { GoToJail } from "./GoToJail";
 import { Property } from "./Property";
 import { TaxTile } from "./TaxTile";
+import * as THREE from "three";
 export class Globals {
     constructor() {
         throw "Cannot create a Globals instance";
@@ -53,3 +54,13 @@ Globals.tiles = [
     new TaxTile(75),
     new Property(400, 50)
 ];
+Globals.v0 = new THREE.Vector3();
+Globals.v1 = new THREE.Vector3();
+Globals.q0 = new THREE.Quaternion();
+Globals.q1 = new THREE.Quaternion();
+Globals.fromIObj = {
+    a: 0
+};
+Globals.toIObj = {
+    a: 1
+};
