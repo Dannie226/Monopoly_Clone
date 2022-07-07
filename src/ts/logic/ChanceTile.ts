@@ -89,6 +89,7 @@ const cards = {
         card: "Because one of your houses wasn't up to code, the roof collapsed and killed someone.\n Go to jail. Go directly to jail, do not pass go, do not collect $200",
         async function( player: Player ) {
             player.inJail = true;
+            player.jailTurns = 1;
             await player.goToPosition( 10 );
         },
         immediate: true
@@ -104,6 +105,7 @@ const cards = {
         card: "Go directly to jail.\n Do not pass go, do not collect $200",
         async function( player: Player ) {
             player.inJail = true;
+            player.jailTurns = 1;
             await player.goToPosition( 10 );
         },
         immediate: true
@@ -135,6 +137,14 @@ const cards = {
             await player.goToPosition( Math.random( ) * 40 | 0 );
         },
         immediate: true
+    },
+    bots: {
+        card: "You were found to be betting on boot fights.\n Go to jail, go directly to jail, do not pass go, do not collect $200",
+        async function( player: Player ) {
+            player.inJail = true;
+            player.jailTurns = 1;
+            await player.goToPosition( 10 );
+        }
     }
 }
 

@@ -139,6 +139,21 @@ export class Player {
         return p;
     }
     moveForward(spaces) {
+        if (this.inJail) {
+            if (spaces >= 11) {
+                this.inJail = false;
+            }
+            else if (this.jailTurns == 5) {
+                this.money -= 50;
+            }
+            else {
+                const scope = this;
+                this.jailTurns++;
+                return new Promise((resolve) => {
+                    resolve(scope);
+                });
+            }
+        }
         return this.goToPosition(this.currentPos + spaces);
     }
     moveBackward(spaces) {

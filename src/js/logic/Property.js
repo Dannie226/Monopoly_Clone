@@ -26,7 +26,7 @@ export class Property {
         if (!this.owner) {
             if (player.money >= this.table.cost) {
                 player.awaitButtonPress([B_BUTTON, A_BUTTON]).then(button => {
-                    if (button == 1) {
+                    if (button == A_BUTTON) {
                         player.money -= scope.table.cost;
                         scope.owner = player;
                         player.properties.push(scope);

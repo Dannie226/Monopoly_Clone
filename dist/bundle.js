@@ -45725,6 +45725,7 @@
             card: "Because one of your houses wasn't up to code, the roof collapsed and killed someone.\n Go to jail. Go directly to jail, do not pass go, do not collect $200",
             async function( player ) {
                 player.inJail = true;
+                player.jailTurns = 1;
                 await player.goToPosition( 10 );
             },
             immediate: true
@@ -45738,6 +45739,7 @@
             card: "Go directly to jail.\n Do not pass go, do not collect $200",
             async function( player ) {
                 player.inJail = true;
+                player.jailTurns = 1;
                 await player.goToPosition( 10 );
             },
             immediate: true
@@ -45769,6 +45771,14 @@
                 await player.goToPosition( Math.random( ) * 40 | 0 );
             },
             immediate: true
+        },
+        bots: {
+            card: "You were found to be betting on boot fights.\n Go to jail, go directly to jail, do not pass go, do not collect $200",
+            async function( player ) {
+                player.inJail = true;
+                player.jailTurns = 1;
+                await player.goToPosition( 10 );
+            }
         }
     };
     class ChanceTile {
@@ -45844,6 +45854,7 @@
             card: "You were convicted of tax evasion.\n Go to jail, go directly to jail, do not pass go, do not collect $200.",
             async function( player ) {
                 player.inJail = true;
+                player.jailTurns = 1;
                 player.goToPosition( 10 );
             },
             immediate: true
@@ -45905,6 +45916,7 @@
             card: "Go to jail. Go directly to jail.\n Do not pass go, do not collect $200",
             async function( player ) {
                 player.inJail = true;
+                player.jailTurns = 1;
                 player.goToPosition( 10 );
             },
             immediate: true
@@ -45974,6 +45986,7 @@
             if ( this.jailed )
                 this.jailed.inJail = false;
             this.jailed = player;
+            player.jailTurns = 1;
             player.inJail = true;
             await player.goToPosition( 10 );
         }
@@ -46007,7 +46020,7 @@
             if ( !this.owner ) {
                 if ( player.money >= this.table.cost ) {
                     player.awaitButtonPress( [ B_BUTTON, A_BUTTON ] ).then( button => {
-                        if ( button == 1 ) {
+                        if ( button == A_BUTTON ) {
                             player.money -= scope.table.cost;
                             scope.owner = player;
                             player.properties.push( scope );
@@ -46295,6 +46308,19 @@
             return p;
         }
         moveForward( spaces ) {
+            if ( this.inJail ) {
+                if ( spaces >= 11 ) {
+                    this.inJail = false;
+                } else if ( this.jailTurns == 5 ) {
+                    this.money -= 50;
+                } else {
+                    const scope = this;
+                    this.jailTurns++;
+                    return new Promise( ( resolve ) => {
+                        resolve( scope );
+                    } );
+                }
+            }
             return this.goToPosition( this.currentPos + spaces );
         }
         moveBackward( spaces ) {

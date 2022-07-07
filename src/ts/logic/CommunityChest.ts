@@ -55,6 +55,7 @@ const cards = {
         card: "You were convicted of tax evasion.\n Go to jail, go directly to jail, do not pass go, do not collect $200.",
         async function( player: Player ) {
             player.inJail = true;
+            player.jailTurns = 1;
             player.goToPosition( 10 );
         },
         immediate: true
@@ -116,6 +117,7 @@ const cards = {
         card: "Go to jail. Go directly to jail.\n Do not pass go, do not collect $200",
         async function( player: Player ) {
             player.inJail = true;
+            player.jailTurns = 1;
             player.goToPosition( 10 );
         },
         immediate: true
