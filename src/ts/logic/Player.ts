@@ -4,19 +4,11 @@ import {
     Tween
 } from "../../libs/tween";
 import {
-    Card
-} from "./Card";
-import {
     Globals
 } from "./Globals";
 import {
     Property
 } from "./Property";
-
-//go = 0, mediteranean = .0333, CC1 = .0570, baltic = 0.0810, income = .1046, RR = 0.1280, oriental = 0.153, Chance1 = .1767, vermont = .2010, connecticut = .2245
-//jail = .255, charles = .2830, eclec = .3070, states = .3300, virginia = .3550, PR = .38, james = .403, CC2 = .426, tennessee = .451, NY = .475
-//FP = .5, kent = .5333, Chance2 = 0.557, ind = .5815, ill = .6047, BOR = 6290, atlas = .652, vernot = .6765, tears = .7, topiary = .724,
-//Wee Woo = .754, Ocean = .7820, NC = .8065, CC3 = .831, Penn = .855, SL = .8795, Chance3 = .903, trees = .9265, marriage = .9505, planks = .975
 
 const tilePositions = [
     0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
@@ -35,30 +27,25 @@ const curve = new THREE.CatmullRomCurve3( [
 ], true );
 
 const v0 = new THREE.Vector3( );
-const v1 = new THREE.Vector3( );
-const q0 = new THREE.Quaternion( );
-const q1 = new THREE.Quaternion( );
-const fromIObj = {
-    a: 0
-};
-const toIObj = {
-    a: 1
-};
+
+export type useFunction = ( player: Player ) => void;
+
 export class Player {
-    public gamepad: Gamepad;
+    public gamepadId: number;
     public token: THREE.Mesh;
     public name: String;
     public money: number = 1500;
     public propertyCount: number = 0;
     public properties: Property[ ] = [ ];
     public inJail: boolean = false;
-    public chanceCard: Card = null;
-    public communityChestCard: Card = null;
+    public jailTurns: number = 0;
+    public chanceCard: useFunction = null;
+    public communityChestCard: useFunction = null;
     public currentPos: number = 0;
     private statsPanel: HTMLDivElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" ) as HTMLDivElement;
 
-    constructor( gamepad: Gamepad, name: String, token: THREE.Mesh ) {
-        this.gamepad = gamepad;
+    constructor( id: number, name: String, token: THREE.Mesh ) {
+        this.gamepadId = id;
         this.name = name;
         this.statsPanel.className = "stats";
         this.token = token;
@@ -67,12 +54,16 @@ export class Player {
         this.token.lookAt( v0 );
     }
 
+    private getGamepad(){
+        return navigator.getGamepads()[this.gamepadId];
+    }
+
     awaitButtonPress( allowedButtons: number[ ] ): Promise < number > {
         const scope = this;
         const p = new Promise < number > ( ( resolve, reject ) => {
             const int = setInterval( ( ) => {
                 for ( const button of allowedButtons ) {
-                    if ( scope.gamepad.buttons[ button ].pressed ) {
+                    if ( scope.getGamepad().buttons[ button ].pressed ) {
                         clearInterval( int );
                         resolve( button );
                     }
@@ -87,7 +78,7 @@ export class Player {
         const p = new Promise < number > ( ( resolve, reject ) => {
             const i = setInterval( ( ) => {
                 for ( const button of allowedButtons ) {
-                    if ( scope.gamepad.buttons[ button ].pressed ) {
+                    if ( scope.getGamepad().buttons[ button ].pressed ) {
                         clearInterval( i );
                         clearTimeout( t );
                         resolve( button );
@@ -117,6 +108,7 @@ export class Player {
     }
 
     goToPosition( position: number ): Promise < Player > {
+        
         const currentT = tilePositions[ this.currentPos ];
         let intT = tilePositions[ position ];
         const scope = this;
@@ -193,7 +185,8 @@ export class Player {
             } ) => {
                 camera.position.lerpVectors( v0, v1, a );
                 camera.quaternion.slerpQuaternions( q0, q1, a );
-            } ).delay( 500 ).easing( Easing.Quadratic.InOut ).onComplete( ( ) => {
+            } ).delay( 500 ).easing( Easing.Quadratic.InOut ).onComplete( async ( ) => {
+                await Globals.tiles[ scope.currentPos ].onLand( scope );
                 resolve( scope )
             } );
 

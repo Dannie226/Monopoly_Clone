@@ -8,7 +8,7 @@ export class Property {
         this.cost = cost;
         this.owner = null;
     }
-    onLand(player) {
+    async onLand(player) {
         const scope = this;
         if (!this.owner) {
             if (player.money >= this.cost) {

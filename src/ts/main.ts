@@ -105,15 +105,19 @@ loader.load( "../board.glb", ( gltf ) => {
 } );
 
 manager.onLoad = async function( ) {
-    const p = new Player( null, "Daniel", assets.tokens.iron );
-    const h = new Player( null, "Nate", assets.tokens.hat );
+    const p = new Player( 0, "Daniel", assets.tokens.iron );
+    const h = new Player( 1, "Nate", assets.tokens.hat );
 
-    for ( let i = 0; i < 5; i++ ) {
-        await p.moveForward( await Dice.rollDice( ) );
-        await wait( 500 );
-        await h.moveForward( await Dice.rollDice( ) );
-        await wait( 500 );
-    }
+    // for ( let i = 0; i < 5; i++ ) {
+    //     await p.moveForward( await Dice.rollDice( ) );
+    //     await wait( 500 );
+    //     await h.moveForward( await Dice.rollDice( ) );
+    //     await wait( 500 );
+    // }
+
+    await p.moveForward( 7 );
+    await wait(500);
+    await h.moveForward(7);
 }
 
 const hdrLoader = new RGBELoader( );

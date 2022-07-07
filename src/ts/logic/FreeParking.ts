@@ -8,7 +8,7 @@ import {
 export class FreeParking implements Tile {
     type: "special" = "special";
 
-    onLand( player: Player ): void {
+    async onLand( player: Player ) {
 
     }
 }

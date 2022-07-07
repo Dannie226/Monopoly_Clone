@@ -44130,11 +44130,8 @@
     var GUI$1 = GUI;
 
     class Card {
-        constructor( onUse ) {
-            this.use = onUse;
-        }
-        onUse( user ) {
-            this.use( user );
+        constructor( ) {
+            throw "Cannot construct a card";
         }
         static initDOM( ) {
             document.body.appendChild( this.card );
@@ -44153,21 +44150,21 @@
     const cards$1 = {
         advil: {
             card: "Advance to Illinois Ave.",
-            function( player ) {
-                player.goToPosition( 24 );
+            async function( player ) {
+                await player.goToPosition( 24 );
             },
             immediate: true
         },
         advut: {
             card: "Advance to nearest utility.\nIf unowned, you may buy from bank.\n If owned, reroll dice and pay owner 10 times the rolled amount.",
-            function( player ) {
+            async function( player ) {
                 //set player position to nearest utility based on current position
             },
             immediate: true
         },
         chair: {
             card: "You have been elected chairman of the board. Pay each player $50",
-            function( user ) {
+            async function( user ) {
                 const players = Globals.players;
                 user.money -= 50 * players.length - 1;
                 for ( const player of players ) {
@@ -44179,95 +44176,94 @@
         },
         advgo: {
             card: "Advance to go",
-            function( player ) {
-                player.goToPosition( 0 );
+            async function( player ) {
+                await player.goToPosition( 0 );
             },
             immediate: true
         },
         advrr: {
             card: "Take a ride on the reading.\n If you pass go, collect $200",
-            function( player ) {
-                player.goToPosition( 5 );
+            async function( player ) {
+                await player.goToPosition( 5 );
             },
             immediate: true
         },
         loan: {
             card: "Your building and loan matures.\n Collect $150",
-            function( player ) {
+            async function( player ) {
                 player.money += 150;
             },
             immediate: true
         },
         bank: {
             card: "Bank pays you dividend of $50",
-            function( player ) {
+            async function( player ) {
                 player.money += 50;
             },
             immediate: true
         },
         advbw: {
             card: "Take a walk on the board walk.\nAdvance token to board walk.",
-            function( player ) {
-                player.goToPosition( 39 );
+            async function( player ) {
+                await player.goToPosition( 39 );
             },
             immediate: true
         },
         back: {
             card: "Go back 3 spaces",
-            function( player ) {
+            async function( player ) {
                 player.inJail = true;
-                player.moveBackward( 3 ).then( ( ) => {
-                    player.inJail = false;
-                } );
+                await player.moveBackward( 3 );
+                player.inJail = false;
             },
             immediate: true
         },
         houses: {
             card: "Because one of your houses wasn't up to code, the roof collapsed and killed someone.\n Go to jail. Go directly to jail, do not pass go, do not collect $200",
-            function( player ) {
+            async function( player ) {
                 player.inJail = true;
-                player.goToPosition( 10 );
+                await player.goToPosition( 10 );
             },
             immediate: true
         },
         advnr: {
             card: "Advance token to the nearest railroad and pay owner twice the rental to which they are entitled.\nIf railroad is unowned, you may buy it from the bank",
-            function( player ) {},
+            async function( player ) {},
             immediate: true
         },
         advjl: {
             card: "Go directly to jail.\n Do not pass go, do not collect $200",
-            function( player ) {
+            async function( player ) {
                 player.inJail = true;
-                player.goToPosition( 10 );
+                await player.goToPosition( 10 );
             },
             immediate: true
         },
         advnj: {
             card: "Get out of jail free",
-            function( player ) {
+            async function( player ) {
                 player.inJail = false;
             },
             immediate: false
         },
         poor: {
             card: "Pay poor tax of $15",
-            function( player ) {
+            async function( player ) {
                 player.money -= 15;
             },
             immediate: false
         },
         advsc: {
             card: "Advance to St. Charles Place.\nIf you pass go, collect $200",
-            function( player ) {
-                player.goToPosition( 11 );
+            async function( player ) {
+                await player.goToPosition( 11 );
             },
             immediate: true
         },
         advrng: {
             card: "Go to a random spot on the board. If you pass go, collect $200.",
-            function( player ) {
-                player.goToPosition( Math.random( ) * 40 | 0 );
+            async function( player ) {
+                await player.goToPosition( Math.random( ) * 40 | 0 );
             },
             immediate: true
         }
@@ -44277,28 +44273,30 @@
             this.type = "chance";
         }
         onLand( player ) {
-            //choose card
-            const k = Object.keys( cards$1 );
-            const card = cards$1[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
-            const dCard = Card.card;
-            if ( !Card.added )
-                Card.initDOM( );
-            dCard.innerText = card.card;
-            dCard.style.display = "block";
-            dCard.style.bottom = "-50px";
-            dCard.style.transform = "translate(-50%, 0%)";
-            new Tween( {
-                h: -50
-            } ).to( {
-                h: 400
-            }, 4500 ).onUpdate( ( {
-                h
-            } ) => {
-                dCard.style.bottom = h + "px";
-            } ).delay( 2000 ).start( ).onComplete( ( ) => {
-                setTimeout( ( ) => {
-                    dCard.style.display = "none";
-                }, 3000 );
+            return new Promise( ( resolve ) => {
+                // const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
+                const card = cards$1.advrng;
+                const dCard = Card.card;
+                if ( !Card.added )
+                    Card.initDOM( );
+                dCard.innerText = card.card;
+                dCard.style.display = "block";
+                dCard.style.bottom = "-50px";
+                dCard.style.transform = "translate(-50%, 0%)";
+                new Tween( {
+                    h: -50
+                } ).to( {
+                    h: 400
+                }, 4500 ).onUpdate( ( {
+                    h
+                } ) => {
+                    dCard.style.bottom = h + "px";
+                } ).delay( 2000 ).start( ).onComplete( ( ) => {
+                    setTimeout( ( ) => {
+                        dCard.style.display = "none";
+                        card.function( player ).then( resolve );
+                    }, 3000 );
+                } );
             } );
         }
     }
@@ -44306,42 +44304,42 @@
     const cards = {
         advnj: {
             card: "Get out of jail, free.",
-            function( player ) {
+            async function( player ) {
                 player.inJail = false;
             },
             immediate: false
         },
         life: {
             card: "Life insurance matures.\n Collect $100.",
-            function( player ) {
+            async function( player ) {
                 player.money += 100;
             },
             immediate: true
         },
         stock: {
             card: "From sale of stock, you get $45.",
-            function( player ) {
+            async function( player ) {
                 player.money += 45;
             },
             immediate: true
         },
         belle: {
             card: "You lost horribly in a beauty contest.\n Pay $50 for entrance fee.",
-            function( player ) {
+            async function( player ) {
                 player.money -= 50;
             },
             immediate: true
         },
         xmas: {
             card: "You were found stealing toys from children on X-mas.\n Pay $100 for compensation.",
-            function( player ) {
+            async function( player ) {
                 player.money -= 100;
             },
             immediate: true
         },
         tax: {
             card: "You were convicted of tax evasion.\n Go to jail, go directly to jail, do not pass go, do not collect $200.",
-            function( player ) {
+            async function( player ) {
                 player.inJail = true;
                 player.goToPosition( 10 );
             },
@@ -44349,7 +44347,7 @@
         },
         opera: {
             card: "Grand Opera Opening.\n Collect $50 from every player.",
-            function( player ) {
+            async function( player ) {
                 const players = Globals.players;
                 for ( const opp of players ) {
                     opp.money -= 50;
@@ -44360,49 +44358,49 @@
         },
         hosp: {
             card: "You broke your ankle. Pay hospital bill of $150.",
-            function( player ) {
+            async function( player ) {
                 player.money -= 150;
             },
             immediate: true
         },
         school: {
             card: "You bought books for a student. Pay $10.",
-            function( player ) {
+            async function( player ) {
                 player.money -= 10;
             },
             immediate: true
         },
         repairs: {
             card: "Housing market soars.\n Collect $100.",
-            function( player ) {
+            async function( player ) {
                 player.money += 100;
             },
             immediate: true
         },
         bank: {
             card: "Bank error really in your favor. Collect $350",
-            function( player ) {
+            async function( player ) {
                 player.money += 350;
             },
             immediate: true
         },
         marriage: {
             card: "You got married and then robbed blind.\n You lose $400",
-            function( player ) {
+            async function( player ) {
                 player.money -= 400;
             },
             immediate: true
         },
         inherit: {
             card: "You inherit $500",
-            function( player ) {
+            async function( player ) {
                 player.money += 500;
             },
             immediate: true
         },
         advjl: {
             card: "Go to jail. Go directly to jail.\n Do not pass go, do not collect $200",
-            function( player ) {
+            async function( player ) {
                 player.inJail = true;
                 player.goToPosition( 10 );
             },
@@ -44410,7 +44408,7 @@
         },
         jackpot: {
             card: "You got a lottery ticket.\n You have a 1 / 1000 chance that you win $1000, otherwise, you lose $10",
-            function( player ) {
+            async function( player ) {
                 player.money += Number( ( Math.random( ) * 1000 | 0 ) == 234 ) * 1000;
             },
             immediate: true
@@ -44421,27 +44419,29 @@
             this.type = "community chest";
         }
         onLand( player ) {
-            const k = Object.keys( cards );
-            const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
-            const dCard = Card.card;
-            if ( !Card.added )
-                Card.initDOM( );
-            dCard.innerText = card.card;
-            dCard.style.display = "block";
-            dCard.style.bottom = "-50px";
-            dCard.style.transform = "translate(-50%, 0%)";
-            new Tween( {
-                h: -50
-            } ).to( {
-                h: 400
-            }, 4500 ).onUpdate( ( {
-                h
-            } ) => {
-                dCard.style.bottom = h + "px";
-            } ).delay( 2000 ).start( ).onComplete( ( ) => {
-                setTimeout( ( ) => {
-                    dCard.style.display = "none";
-                }, 3000 );
+            return new Promise( ( resolve ) => {
+                const k = Object.keys( cards );
+                const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
+                const dCard = Card.card;
+                if ( !Card.added )
+                    Card.initDOM( );
+                dCard.innerText = card.card;
+                dCard.style.display = "block";
+                dCard.style.bottom = "-50px";
+                dCard.style.transform = "translate(-50%, 0%)";
+                new Tween( {
+                    h: -50
+                } ).to( {
+                    h: 400
+                }, 4500 ).onUpdate( ( {
+                    h
+                } ) => {
+                    dCard.style.bottom = h + "px";
+                } ).delay( 2000 ).start( ).onComplete( ( ) => {
+                    setTimeout( ( ) => {
+                        dCard.style.display = "none";
+                    }, 3000 );
+                } );
             } );
         }
     }
@@ -44450,14 +44450,14 @@
         constructor( ) {
             this.type = "special";
         }
-        onLand( player ) {}
+        async onLand( player ) {}
     }
 
     class GoTile {
         constructor( ) {
             this.type = "special";
         }
-        onLand( player ) {
+        async onLand( player ) {
             player.money += 100;
         }
     }
@@ -44467,12 +44467,12 @@
             this.type = "special";
             this.jailed = null;
         }
-        onLand( player ) {
+        async onLand( player ) {
             if ( this.jailed )
                 this.jailed.inJail = false;
             this.jailed = player;
             player.inJail = true;
-            player.goToPosition( 10 );
+            await player.goToPosition( 10 );
         }
     }
 
@@ -44489,7 +44489,7 @@
             this.cost = cost;
             this.owner = null;
         }
-        onLand( player ) {
+        async onLand( player ) {
             const scope = this;
             if ( !this.owner ) {
                 if ( player.money >= this.cost ) {
@@ -44520,7 +44520,7 @@
             this.type = "special";
             this.tax = tax;
         }
-        onLand( player ) {
+        async onLand( player ) {
             player.money -= this.tax;
         }
     }
@@ -44584,10 +44584,6 @@
         a: 1
     };
 
-    //go = 0, mediteranean = .0333, CC1 = .0570, baltic = 0.0810, income = .1046, RR = 0.1280, oriental = 0.153, Chance1 = .1767, vermont = .2010, connecticut = .2245
-    //jail = .255, charles = .2830, eclec = .3070, states = .3300, virginia = .3550, PR = .38, james = .403, CC2 = .426, tennessee = .451, NY = .475
-    //FP = .5, kent = .5333, Chance2 = 0.557, ind = .5815, ill = .6047, BOR = 6290, atlas = .652, vernot = .6765, tears = .7, topiary = .724,
-    //Wee Woo = .754, Ocean = .7820, NC = .8065, CC3 = .831, Penn = .855, SL = .8795, Chance3 = .903, trees = .9265, marriage = .9505, planks = .975
     const tilePositions = [
         0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
         .5000, .5333, .5570, .5815, .6047, .6290, .6520, .6765, .7000, .7240, .7540, .7820, .8065, .8310, .8550, .8795, .9030, .9265, .9505, .9750
@@ -44603,9 +44599,6 @@
         new Vector3( 625, 0, -600 )
     ], true );
     const v0$1 = new Vector3( );
-    new Vector3( );
-    new Quaternion$1( );
-    new Quaternion$1( );
     class Player {
         constructor( gamepad, name, token ) {
             this.money = 1500;
@@ -44727,7 +44720,8 @@
                 } ) => {
                     camera.position.lerpVectors( v0, v1, a );
                     camera.quaternion.slerpQuaternions( q0, q1, a );
-                } ).delay( 500 ).easing( Easing.Quadratic.InOut ).onComplete( ( ) => {
+                } ).delay( 500 ).easing( Easing.Quadratic.InOut ).onComplete( async ( ) => {
+                    await Globals.tiles[ scope.currentPos ].onLand( scope );
                     resolve( scope );
                 } );
                 camToTokenTween.start( );
@@ -53503,9 +53497,9 @@
     Dice.clock = new Clock( );
 
     const {
-        innerWidth: s,
+        innerWidth: l,
         innerHeight: d
-    } = window, m = new WebGLRenderer, c = ( m.setSize( s, d ), m.setClearColor( 12571109 ), document.body.appendChild( m.domElement ), new Scene ), u = new PerspectiveCamera( 75, s / d, 100, 3e3 ), _ = ( u.position.y = 1e3, u.position.x = 2e3, Globals.camera = u, new DirectionalLight ), w = ( c.add( _ ), new PMREMGenerator( m ) ), h = new LoadingManager, b = new GLTFLoader( h ), p = {
+    } = window, m = new WebGLRenderer, c = ( m.setSize( l, d ), m.setClearColor( 12571109 ), document.body.appendChild( m.domElement ), new Scene ), _ = new PerspectiveCamera( 75, l / d, 100, 3e3 ), u = ( _.position.y = 1e3, _.position.x = 2e3, Globals.camera = _, new DirectionalLight ), b = ( c.add( u ), new PMREMGenerator( m ) ), h = new LoadingManager, p = new GLTFLoader( h ), g = {
         tokens: {
             hat: null,
             iron: null,
@@ -53515,34 +53509,27 @@
         board: null
     };
     new GUI$1;
-    const f = ( b.load( "../die.glb", e => {
+    const w = ( p.load( "../die.glb", e => {
         Dice.init( );
         const t = e.scene.getObjectByName( "Box001_Material_#25_0" );
         t.geometry.center( ), c.add( Dice.createDie( t ).getMesh( ) ), c.add( Dice.createDie( ).getMesh( ) );
-    } ), b.load( "../board.glb", e => {
+    } ), p.load( "../board.glb", e => {
         const t = [ ];
         for ( const o of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
             const a = e.scene.getObjectByName( o );
             a.geometry.rotateX( -Math.PI / 2 ), a.geometry.rotateY( Math.PI / 2 ), c.add( a ), t.push( a );
         }
-        p.tokens.hat = t[ 0 ], p.tokens.iron = t[ 1 ], p.tokens.barrow = t[ 2 ], p.tokens.thimble = t[ 3 ], p.tokens.barrow.visible = p.tokens.thimble.visible = !1, u.position.set( 0, 975, 0 ), u.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), p.board = e.scene.getObjectByName( "Board_01_-_Default_0" ), p.board.geometry.rotateX( -Math.PI / 2 ), p.board.position.z = -10, c.add( p.board );
+        g.tokens.hat = t[ 0 ], g.tokens.iron = t[ 1 ], g.tokens.barrow = t[ 2 ], g.tokens.thimble = t[ 3 ], g.tokens.barrow.visible = g.tokens.thimble.visible = !1, _.position.set( 0, 975, 0 ), _.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), g.board = e.scene.getObjectByName( "Board_01_-_Default_0" ), g.board.geometry.rotateX( -Math.PI / 2 ), g.board.position.z = -10, c.add( g.board );
     } ), h.onLoad = async function( ) {
-        const t = new Player( null, "Daniel", p.tokens.iron ),
-            o = new Player( null, "Nate", p.tokens.hat );
-        for ( let e = 0; e < 5; e++ ) await t.moveForward( await Dice.rollDice( ) ), await y( 500 ), await o.moveForward( await Dice.rollDice( ) ), await y( 500 );
+        const e = new Player( null, "Daniel", g.tokens.iron );
+        await e.moveForward( 7 );
     }, new RGBELoader );
 
-    function D( ) {
-        update( ), Dice.update( ), m.render( c, u ), requestAnimationFrame( D );
+    function y( ) {
+        update( ), Dice.update( ), m.render( c, _ ), requestAnimationFrame( y );
     }
-
-    function y( t ) {
-        return new Promise( e => {
-            setTimeout( e, t );
-        } )
-    }
-    f.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
-        c.environment = w.fromEquirectangular( e ).texture;
-    } ), D( );
+    w.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
+        c.environment = b.fromEquirectangular( e ).texture;
+    } ), y( );
 
 } )( );

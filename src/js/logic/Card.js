@@ -1,9 +1,6 @@
 export class Card {
-    constructor(onUse) {
-        this.use = onUse;
-    }
-    onUse(user) {
-        this.use(user);
+    constructor() {
+        throw "Cannot construct a card";
     }
     static initDOM() {
         document.body.appendChild(this.card);

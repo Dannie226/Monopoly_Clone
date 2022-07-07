@@ -2,7 +2,7 @@ export class GoTile {
     constructor() {
         this.type = "special";
     }
-    onLand(player) {
+    async onLand(player) {
         player.money += 100;
     }
 }

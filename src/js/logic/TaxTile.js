@@ -3,7 +3,7 @@ export class TaxTile {
         this.type = "special";
         this.tax = tax;
     }
-    onLand(player) {
+    async onLand(player) {
         player.money -= this.tax;
     }
 }

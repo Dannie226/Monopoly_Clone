@@ -22,70 +22,73 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const manager = new THREE.LoadingManager();
 const loader = new GLTFLoader(manager);
 const assets = {
-	tokens: {
-		hat: null,
-		iron: null,
-		barrow: null,
-		thimble: null
-	},
-	board: null
+    tokens: {
+        hat: null,
+        iron: null,
+        barrow: null,
+        thimble: null
+    },
+    board: null
 };
 //eslint-disable-next-line no-unused-vars
 const gui = new GUI();
 //eslint-disable-next-line no-unused-vars
 // const controls = new OrbitControls( camera, renderer.domElement );
 loader.load("../die.glb", (gltf) => {
-	Dice.init();
-	const dieMesh = gltf.scene.getObjectByName("Box001_Material_#25_0");
-	dieMesh.geometry.center();
-	scene.add(Dice.createDie(dieMesh).getMesh());
-	scene.add(Dice.createDie().getMesh());
+    Dice.init();
+    const dieMesh = gltf.scene.getObjectByName("Box001_Material_#25_0");
+    dieMesh.geometry.center();
+    scene.add(Dice.createDie(dieMesh).getMesh());
+    scene.add(Dice.createDie().getMesh());
 });
 loader.load("../board.glb", (gltf) => {
-	const names = ["Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0"];
-	const tokens = [];
-	for (const name of names) {
-		const o = gltf.scene.getObjectByName(name);
-		o.geometry.rotateX(-Math.PI / 2);
-		o.geometry.rotateY(Math.PI / 2);
-		scene.add(o);
-		tokens.push(o);
-	}
-	assets.tokens.hat = tokens[0];
-	assets.tokens.iron = tokens[1];
-	assets.tokens.barrow = tokens[2];
-	assets.tokens.thimble = tokens[3];
-	assets.tokens.barrow.visible = assets.tokens.thimble.visible = false;
-	camera.position.set(0, 975, 0);
-	camera.quaternion.set(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
-	assets.board = gltf.scene.getObjectByName("Board_01_-_Default_0");
-	assets.board.geometry.rotateX(-Math.PI / 2);
-	assets.board.position.z = -10;
-	scene.add(assets.board);
+    const names = ["Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0"];
+    const tokens = [];
+    for (const name of names) {
+        const o = gltf.scene.getObjectByName(name);
+        o.geometry.rotateX(-Math.PI / 2);
+        o.geometry.rotateY(Math.PI / 2);
+        scene.add(o);
+        tokens.push(o);
+    }
+    assets.tokens.hat = tokens[0];
+    assets.tokens.iron = tokens[1];
+    assets.tokens.barrow = tokens[2];
+    assets.tokens.thimble = tokens[3];
+    assets.tokens.barrow.visible = assets.tokens.thimble.visible = false;
+    camera.position.set(0, 975, 0);
+    camera.quaternion.set(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
+    assets.board = gltf.scene.getObjectByName("Board_01_-_Default_0");
+    assets.board.geometry.rotateX(-Math.PI / 2);
+    assets.board.position.z = -10;
+    scene.add(assets.board);
 });
 manager.onLoad = async function () {
-	const p = new Player(null, "Daniel", assets.tokens.iron);
-	const h = new Player(null, "Nate", assets.tokens.hat);
-	for (let i = 0; i < 5; i++) {
-		await p.moveForward(await Dice.rollDice());
-		await wait(500);
-		await h.moveForward(await Dice.rollDice());
-		await wait(500);
-	}
+    const p = new Player(null, "Daniel", assets.tokens.iron);
+    const h = new Player(null, "Nate", assets.tokens.hat);
+    // for ( let i = 0; i < 5; i++ ) {
+    //     await p.moveForward( await Dice.rollDice( ) );
+    //     await wait( 500 );
+    //     await h.moveForward( await Dice.rollDice( ) );
+    //     await wait( 500 );
+    // }
+    await p.moveForward(7);
+    await wait(500);
+    await h.moveForward(7);
 };
 const hdrLoader = new RGBELoader();
 hdrLoader.load("https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function (texture) {
-	scene.environment = pmrem.fromEquirectangular(texture).texture;
+    scene.environment = pmrem.fromEquirectangular(texture).texture;
 });
 function animate() {
-	TWEEN.update();
-	Dice.update();
-	renderer.render(scene, camera);
-	requestAnimationFrame(animate);
+    TWEEN.update();
+    Dice.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
 }
 animate();
 function wait(ms) {
-	return new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
 }

@@ -9,10 +9,10 @@ export class GoToJail implements Tile {
     type: "special" = "special";
     jailed: Player = null;
 
-    onLand( player: Player ): void {
+    async onLand( player: Player ) {
         if ( this.jailed ) this.jailed.inJail = false;
         this.jailed = player;
         player.inJail = true;
-        player.goToPosition( 10 );
+        await player.goToPosition( 10 );
     }
 }

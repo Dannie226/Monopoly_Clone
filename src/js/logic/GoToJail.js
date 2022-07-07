@@ -3,11 +3,11 @@ export class GoToJail {
         this.type = "special";
         this.jailed = null;
     }
-    onLand(player) {
+    async onLand(player) {
         if (this.jailed)
             this.jailed.inJail = false;
         this.jailed = player;
         player.inJail = true;
-        player.goToPosition(10);
+        await player.goToPosition(10);
     }
 }

@@ -4,21 +4,21 @@ import { Globals } from "./Globals";
 const cards = {
     advil: {
         card: "Advance to Illinois Ave.",
-        function(player) {
-            player.goToPosition(24);
+        async function(player) {
+            await player.goToPosition(24);
         },
         immediate: true
     },
     advut: {
         card: "Advance to nearest utility.\nIf unowned, you may buy from bank.\n If owned, reroll dice and pay owner 10 times the rolled amount.",
-        function(player) {
+        async function(player) {
             //set player position to nearest utility based on current position
         },
         immediate: true
     },
     chair: {
         card: "You have been elected chairman of the board. Pay each player $50",
-        function(user) {
+        async function(user) {
             const players = Globals.players;
             user.money -= 50 * players.length - 1;
             for (const player of players) {
@@ -30,96 +30,95 @@ const cards = {
     },
     advgo: {
         card: "Advance to go",
-        function(player) {
-            player.goToPosition(0);
+        async function(player) {
+            await player.goToPosition(0);
         },
         immediate: true
     },
     advrr: {
         card: "Take a ride on the reading.\n If you pass go, collect $200",
-        function(player) {
-            player.goToPosition(5);
+        async function(player) {
+            await player.goToPosition(5);
         },
         immediate: true
     },
     loan: {
         card: "Your building and loan matures.\n Collect $150",
-        function(player) {
+        async function(player) {
             player.money += 150;
         },
         immediate: true
     },
     bank: {
         card: "Bank pays you dividend of $50",
-        function(player) {
+        async function(player) {
             player.money += 50;
         },
         immediate: true
     },
     advbw: {
         card: "Take a walk on the board walk.\nAdvance token to board walk.",
-        function(player) {
-            player.goToPosition(39);
+        async function(player) {
+            await player.goToPosition(39);
         },
         immediate: true
     },
     back: {
         card: "Go back 3 spaces",
-        function(player) {
+        async function(player) {
             player.inJail = true;
-            player.moveBackward(3).then(() => {
-                player.inJail = false;
-            });
+            await player.moveBackward(3);
+            player.inJail = false;
         },
         immediate: true
     },
     houses: {
         card: "Because one of your houses wasn't up to code, the roof collapsed and killed someone.\n Go to jail. Go directly to jail, do not pass go, do not collect $200",
-        function(player) {
+        async function(player) {
             player.inJail = true;
-            player.goToPosition(10);
+            await player.goToPosition(10);
         },
         immediate: true
     },
     advnr: {
         card: "Advance token to the nearest railroad and pay owner twice the rental to which they are entitled.\nIf railroad is unowned, you may buy it from the bank",
-        function(player) {
+        async function(player) {
         },
         immediate: true
     },
     advjl: {
         card: "Go directly to jail.\n Do not pass go, do not collect $200",
-        function(player) {
+        async function(player) {
             player.inJail = true;
-            player.goToPosition(10);
+            await player.goToPosition(10);
         },
         immediate: true
     },
     advnj: {
         card: "Get out of jail free",
-        function(player) {
+        async function(player) {
             player.inJail = false;
         },
         immediate: false
     },
     poor: {
         card: "Pay poor tax of $15",
-        function(player) {
+        async function(player) {
             player.money -= 15;
         },
         immediate: false
     },
     advsc: {
         card: "Advance to St. Charles Place.\nIf you pass go, collect $200",
-        function(player) {
-            player.goToPosition(11);
+        async function(player) {
+            await player.goToPosition(11);
         },
         immediate: true
     },
     advrng: {
         card: "Go to a random spot on the board. If you pass go, collect $200.",
-        function(player) {
-            player.goToPosition(Math.random() * 40 | 0);
+        async function(player) {
+            await player.goToPosition(Math.random() * 40 | 0);
         },
         immediate: true
     }
@@ -129,26 +128,30 @@ export class ChanceTile {
         this.type = "chance";
     }
     onLand(player) {
-        //choose card
-        const k = Object.keys(cards);
-        const card = cards[k[Math.random() * (k.length - 1) | 0]];
-        const dCard = Card.card;
-        if (!Card.added)
-            Card.initDOM();
-        dCard.innerText = card.card;
-        dCard.style.display = "block";
-        dCard.style.bottom = "-50px";
-        dCard.style.transform = "translate(-50%, 0%)";
-        new Tween({
-            h: -50
-        }).to({
-            h: 400
-        }, 4500).onUpdate(({ h }) => {
-            dCard.style.bottom = h + "px";
-        }).delay(2000).start().onComplete(() => {
-            setTimeout(() => {
-                dCard.style.display = "none";
-            }, 3000);
+        return new Promise((resolve) => {
+            //choose card
+            const k = Object.keys(cards);
+            // const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
+            const card = cards.advrng;
+            const dCard = Card.card;
+            if (!Card.added)
+                Card.initDOM();
+            dCard.innerText = card.card;
+            dCard.style.display = "block";
+            dCard.style.bottom = "-50px";
+            dCard.style.transform = "translate(-50%, 0%)";
+            new Tween({
+                h: -50
+            }).to({
+                h: 400
+            }, 4500).onUpdate(({ h }) => {
+                dCard.style.bottom = h + "px";
+            }).delay(2000).start().onComplete(() => {
+                setTimeout(() => {
+                    dCard.style.display = "none";
+                    card.function(player).then(resolve);
+                }, 3000);
+            });
         });
     }
 }

@@ -2,20 +2,14 @@ import {
     Player
 } from "./Player";
 
-export type useFunction = ( user: Player ) => void;
+export type useFunction = ( user: Player ) => Promise < void > ;
 
 export class Card {
     public static readonly card: HTMLDivElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" ) as HTMLDivElement;
     public static added: boolean = false;
 
-    private use: useFunction;
-
-    constructor( onUse: useFunction ) {
-        this.use = onUse;
-    }
-
-    onUse( user: Player ) {
-        this.use( user );
+    private constructor( ) {
+        throw "Cannot construct a card";
     }
 
     static initDOM( ) {

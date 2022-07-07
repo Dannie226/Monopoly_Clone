@@ -8,7 +8,7 @@ import {
 export class GoTile implements Tile {
     type: "special" = "special";
 
-    onLand( player: Player ): void {
+    async onLand( player: Player ) {
         player.money += 100;
     }
 }

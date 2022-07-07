@@ -1,10 +1,6 @@
 import * as THREE from "three";
 import { Easing, Tween } from "../../libs/tween";
 import { Globals } from "./Globals";
-//go = 0, mediteranean = .0333, CC1 = .0570, baltic = 0.0810, income = .1046, RR = 0.1280, oriental = 0.153, Chance1 = .1767, vermont = .2010, connecticut = .2245
-//jail = .255, charles = .2830, eclec = .3070, states = .3300, virginia = .3550, PR = .38, james = .403, CC2 = .426, tennessee = .451, NY = .475
-//FP = .5, kent = .5333, Chance2 = 0.557, ind = .5815, ill = .6047, BOR = 6290, atlas = .652, vernot = .6765, tears = .7, topiary = .724,
-//Wee Woo = .754, Ocean = .7820, NC = .8065, CC3 = .831, Penn = .855, SL = .8795, Chance3 = .903, trees = .9265, marriage = .9505, planks = .975
 const tilePositions = [
     0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
     .5000, .5333, .5570, .5815, .6047, .6290, .6520, .6765, .7000, .7240, .7540, .7820, .8065, .8310, .8550, .8795, .9030, .9265, .9505, .9750
@@ -20,15 +16,6 @@ const curve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(625, 0, -600)
 ], true);
 const v0 = new THREE.Vector3();
-const v1 = new THREE.Vector3();
-const q0 = new THREE.Quaternion();
-const q1 = new THREE.Quaternion();
-const fromIObj = {
-    a: 0
-};
-const toIObj = {
-    a: 1
-};
 export class Player {
     constructor(gamepad, name, token) {
         this.money = 1500;
@@ -139,7 +126,8 @@ export class Player {
             const camToOrigTween = new Tween(fromIObj).to(toIObj, 3000).onUpdate(({ a }) => {
                 camera.position.lerpVectors(v0, v1, a);
                 camera.quaternion.slerpQuaternions(q0, q1, a);
-            }).delay(500).easing(Easing.Quadratic.InOut).onComplete(() => {
+            }).delay(500).easing(Easing.Quadratic.InOut).onComplete(async () => {
+                await Globals.tiles[scope.currentPos].onLand(scope);
                 resolve(scope);
             });
             camToTokenTween.start();

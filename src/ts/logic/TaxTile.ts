@@ -12,7 +12,7 @@ export class TaxTile implements Tile {
         this.tax = tax;
     }
 
-    onLand( player: Player ): void {
+    async onLand( player: Player ) {
         player.money -= this.tax;
     }
 }
