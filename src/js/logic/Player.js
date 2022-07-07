@@ -17,16 +17,17 @@ const curve = new THREE.CatmullRomCurve3([
 ], true);
 const v0 = new THREE.Vector3();
 export class Player {
-    constructor(gamepad, name, token) {
+    constructor(id, name, token) {
         this.money = 1500;
         this.propertyCount = 0;
         this.properties = [];
         this.inJail = false;
+        this.jailTurns = 0;
         this.chanceCard = null;
         this.communityChestCard = null;
         this.currentPos = 0;
         this.statsPanel = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-        this.gamepad = gamepad;
+        this.gamepadId = id;
         this.name = name;
         this.statsPanel.className = "stats";
         this.token = token;
@@ -34,12 +35,15 @@ export class Player {
         curve.getPointAt(0.01, v0);
         this.token.lookAt(v0);
     }
+    getGamepad() {
+        return navigator.getGamepads()[this.gamepadId];
+    }
     awaitButtonPress(allowedButtons) {
         const scope = this;
         const p = new Promise((resolve, reject) => {
             const int = setInterval(() => {
                 for (const button of allowedButtons) {
-                    if (scope.gamepad.buttons[button].pressed) {
+                    if (scope.getGamepad().buttons[button].pressed) {
                         clearInterval(int);
                         resolve(button);
                     }
@@ -53,7 +57,7 @@ export class Player {
         const p = new Promise((resolve, reject) => {
             const i = setInterval(() => {
                 for (const button of allowedButtons) {
-                    if (scope.gamepad.buttons[button].pressed) {
+                    if (scope.getGamepad().buttons[button].pressed) {
                         clearInterval(i);
                         clearTimeout(t);
                         resolve(button);

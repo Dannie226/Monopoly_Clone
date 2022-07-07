@@ -54,8 +54,8 @@ export class Player {
         this.token.lookAt( v0 );
     }
 
-    private getGamepad(){
-        return navigator.getGamepads()[this.gamepadId];
+    private getGamepad( ) {
+        return navigator.getGamepads( )[ this.gamepadId ];
     }
 
     awaitButtonPress( allowedButtons: number[ ] ): Promise < number > {
@@ -63,7 +63,7 @@ export class Player {
         const p = new Promise < number > ( ( resolve, reject ) => {
             const int = setInterval( ( ) => {
                 for ( const button of allowedButtons ) {
-                    if ( scope.getGamepad().buttons[ button ].pressed ) {
+                    if ( scope.getGamepad( ).buttons[ button ].pressed ) {
                         clearInterval( int );
                         resolve( button );
                     }
@@ -78,7 +78,7 @@ export class Player {
         const p = new Promise < number > ( ( resolve, reject ) => {
             const i = setInterval( ( ) => {
                 for ( const button of allowedButtons ) {
-                    if ( scope.getGamepad().buttons[ button ].pressed ) {
+                    if ( scope.getGamepad( ).buttons[ button ].pressed ) {
                         clearInterval( i );
                         clearTimeout( t );
                         resolve( button );
@@ -108,7 +108,7 @@ export class Player {
     }
 
     goToPosition( position: number ): Promise < Player > {
-        
+
         const currentT = tilePositions[ this.currentPos ];
         let intT = tilePositions[ position ];
         const scope = this;

@@ -7,6 +7,20 @@
      * SPDX-License-Identifier: MIT
      */
     const REVISION = '142';
+    const MOUSE = {
+        LEFT: 0,
+        MIDDLE: 1,
+        RIGHT: 2,
+        ROTATE: 0,
+        DOLLY: 1,
+        PAN: 2
+    };
+    const TOUCH = {
+        ROTATE: 0,
+        PAN: 1,
+        DOLLY_PAN: 2,
+        DOLLY_ROTATE: 3
+    };
     const CullFaceNone = 0;
     const CullFaceBack = 1;
     const CullFaceFront = 2;
@@ -144,6 +158,7 @@
     const AlwaysStencilFunc = 519;
 
     const StaticDrawUsage = 35044;
+    const DynamicDrawUsage = 35048;
     const GLSL3 = '300 es';
 
     const _SRGBAFormat = 1035; // fallback for WebGL 1
@@ -30089,6 +30104,175 @@
 
     }
 
+    class InstancedBufferAttribute extends BufferAttribute {
+
+        constructor( array, itemSize, normalized, meshPerAttribute = 1 ) {
+
+            if ( typeof normalized === 'number' ) {
+
+                meshPerAttribute = normalized;
+
+                normalized = false;
+
+                console.error( 'THREE.InstancedBufferAttribute: The constructor now expects normalized as the third argument.' );
+
+            }
+
+            super( array, itemSize, normalized );
+
+            this.isInstancedBufferAttribute = true;
+
+            this.meshPerAttribute = meshPerAttribute;
+
+        }
+
+        copy( source ) {
+
+            super.copy( source );
+
+            this.meshPerAttribute = source.meshPerAttribute;
+
+            return this;
+
+        }
+
+        toJSON( ) {
+
+            const data = super.toJSON( );
+
+            data.meshPerAttribute = this.meshPerAttribute;
+
+            data.isInstancedBufferAttribute = true;
+
+            return data;
+
+        }
+
+    }
+
+    const _instanceLocalMatrix = /*@__PURE__*/ new Matrix4( );
+    const _instanceWorldMatrix = /*@__PURE__*/ new Matrix4( );
+
+    const _instanceIntersects = [ ];
+
+    const _mesh = /*@__PURE__*/ new Mesh( );
+
+    class InstancedMesh extends Mesh {
+
+        constructor( geometry, material, count ) {
+
+            super( geometry, material );
+
+            this.isInstancedMesh = true;
+
+            this.instanceMatrix = new InstancedBufferAttribute( new Float32Array( count * 16 ), 16 );
+            this.instanceColor = null;
+
+            this.count = count;
+
+            this.frustumCulled = false;
+
+        }
+
+        copy( source, recursive ) {
+
+            super.copy( source, recursive );
+
+            this.instanceMatrix.copy( source.instanceMatrix );
+
+            if ( source.instanceColor !== null ) this.instanceColor = source.instanceColor.clone( );
+
+            this.count = source.count;
+
+            return this;
+
+        }
+
+        getColorAt( index, color ) {
+
+            color.fromArray( this.instanceColor.array, index * 3 );
+
+        }
+
+        getMatrixAt( index, matrix ) {
+
+            matrix.fromArray( this.instanceMatrix.array, index * 16 );
+
+        }
+
+        raycast( raycaster, intersects ) {
+
+            const matrixWorld = this.matrixWorld;
+            const raycastTimes = this.count;
+
+            _mesh.geometry = this.geometry;
+            _mesh.material = this.material;
+
+            if ( _mesh.material === undefined ) return;
+
+            for ( let instanceId = 0; instanceId < raycastTimes; instanceId++ ) {
+
+                // calculate the world matrix for each instance
+
+                this.getMatrixAt( instanceId, _instanceLocalMatrix );
+
+                _instanceWorldMatrix.multiplyMatrices( matrixWorld, _instanceLocalMatrix );
+
+                // the mesh represents this single instance
+
+                _mesh.matrixWorld = _instanceWorldMatrix;
+
+                _mesh.raycast( raycaster, _instanceIntersects );
+
+                // process the result of raycast
+
+                for ( let i = 0, l = _instanceIntersects.length; i < l; i++ ) {
+
+                    const intersect = _instanceIntersects[ i ];
+                    intersect.instanceId = instanceId;
+                    intersect.object = this;
+                    intersects.push( intersect );
+
+                }
+
+                _instanceIntersects.length = 0;
+
+            }
+
+        }
+
+        setColorAt( index, color ) {
+
+            if ( this.instanceColor === null ) {
+
+                this.instanceColor = new InstancedBufferAttribute( new Float32Array( this.instanceMatrix.count * 3 ), 3 );
+
+            }
+
+            color.toArray( this.instanceColor.array, index * 3 );
+
+        }
+
+        setMatrixAt( index, matrix ) {
+
+            matrix.toArray( this.instanceMatrix.array, index * 16 );
+
+        }
+
+        updateMorphTargets( ) {
+
+        }
+
+        dispose( ) {
+
+            this.dispatchEvent( {
+                type: 'dispose'
+            } );
+
+        }
+
+    }
+
     class LineBasicMaterial extends Material$1 {
 
         constructor( parameters ) {
@@ -35576,6 +35760,89 @@
 
     ];
 
+    /**
+     * Ref: https://en.wikipedia.org/wiki/Spherical_coordinate_system
+     *
+     * The polar angle (phi) is measured from the positive y-axis. The positive y-axis is up.
+     * The azimuthal angle (theta) is measured from the positive z-axis.
+     */
+
+    class Spherical {
+
+        constructor( radius = 1, phi = 0, theta = 0 ) {
+
+            this.radius = radius;
+            this.phi = phi; // polar angle
+            this.theta = theta; // azimuthal angle
+
+            return this;
+
+        }
+
+        set( radius, phi, theta ) {
+
+            this.radius = radius;
+            this.phi = phi;
+            this.theta = theta;
+
+            return this;
+
+        }
+
+        copy( other ) {
+
+            this.radius = other.radius;
+            this.phi = other.phi;
+            this.theta = other.theta;
+
+            return this;
+
+        }
+
+        // restrict phi to be between EPS and PI-EPS
+        makeSafe( ) {
+
+            const EPS = 0.000001;
+            this.phi = Math.max( EPS, Math.min( Math.PI - EPS, this.phi ) );
+
+            return this;
+
+        }
+
+        setFromVector3( v ) {
+
+            return this.setFromCartesianCoords( v.x, v.y, v.z );
+
+        }
+
+        setFromCartesianCoords( x, y, z ) {
+
+            this.radius = Math.sqrt( x * x + y * y + z * z );
+
+            if ( this.radius === 0 ) {
+
+                this.theta = 0;
+                this.phi = 0;
+
+            } else {
+
+                this.theta = Math.atan2( x, z );
+                this.phi = Math.acos( clamp( y / this.radius, -1, 1 ) );
+
+            }
+
+            return this;
+
+        }
+
+        clone( ) {
+
+            return new this.constructor( ).copy( this );
+
+        }
+
+    }
+
     // Fast Half Float Conversions, http://www.fox-toolkit.org/ftp/fasthalffloatconversion.pdf
 
     const {
@@ -40292,6 +40559,1242 @@
 
     }
 
+    // This set of controls performs orbiting, dollying (zooming), and panning.
+    // Unlike TrackballControls, it maintains the "up" direction object.up (+Y by default).
+    //
+    //    Orbit - left mouse / touch: one-finger move
+    //    Zoom - middle mouse, or mousewheel / touch: two-finger spread or squish
+    //    Pan - right mouse, or left mouse + ctrl/meta/shiftKey, or arrow keys / touch: two-finger move
+
+    const _changeEvent = {
+        type: 'change'
+    };
+    const _startEvent = {
+        type: 'start'
+    };
+    const _endEvent = {
+        type: 'end'
+    };
+
+    class OrbitControls extends EventDispatcher {
+
+        constructor( object, domElement ) {
+
+            super( );
+
+            if ( domElement === undefined ) console.warn( 'THREE.OrbitControls: The second parameter "domElement" is now mandatory.' );
+            if ( domElement === document ) console.error( 'THREE.OrbitControls: "document" should not be used as the target "domElement". Please use "renderer.domElement" instead.' );
+
+            this.object = object;
+            this.domElement = domElement;
+            this.domElement.style.touchAction = 'none'; // disable touch scroll
+
+            // Set to false to disable this control
+            this.enabled = true;
+
+            // "target" sets the location of focus, where the object orbits around
+            this.target = new Vector3( );
+
+            // How far you can dolly in and out ( PerspectiveCamera only )
+            this.minDistance = 0;
+            this.maxDistance = Infinity;
+
+            // How far you can zoom in and out ( OrthographicCamera only )
+            this.minZoom = 0;
+            this.maxZoom = Infinity;
+
+            // How far you can orbit vertically, upper and lower limits.
+            // Range is 0 to Math.PI radians.
+            this.minPolarAngle = 0; // radians
+            this.maxPolarAngle = Math.PI; // radians
+
+            // How far you can orbit horizontally, upper and lower limits.
+            // If set, the interval [ min, max ] must be a sub-interval of [ - 2 PI, 2 PI ], with ( max - min < 2 PI )
+            this.minAzimuthAngle = -Infinity; // radians
+            this.maxAzimuthAngle = Infinity; // radians
+
+            // Set to true to enable damping (inertia)
+            // If damping is enabled, you must call controls.update() in your animation loop
+            this.enableDamping = false;
+            this.dampingFactor = 0.05;
+
+            // This option actually enables dollying in and out; left as "zoom" for backwards compatibility.
+            // Set to false to disable zooming
+            this.enableZoom = true;
+            this.zoomSpeed = 1.0;
+
+            // Set to false to disable rotating
+            this.enableRotate = true;
+            this.rotateSpeed = 1.0;
+
+            // Set to false to disable panning
+            this.enablePan = true;
+            this.panSpeed = 1.0;
+            this.screenSpacePanning = true; // if false, pan orthogonal to world-space direction camera.up
+            this.keyPanSpeed = 7.0; // pixels moved per arrow key push
+
+            // Set to true to automatically rotate around the target
+            // If auto-rotate is enabled, you must call controls.update() in your animation loop
+            this.autoRotate = false;
+            this.autoRotateSpeed = 2.0; // 30 seconds per orbit when fps is 60
+
+            // The four arrow keys
+            this.keys = {
+                LEFT: 'ArrowLeft',
+                UP: 'ArrowUp',
+                RIGHT: 'ArrowRight',
+                BOTTOM: 'ArrowDown'
+            };
+
+            // Mouse buttons
+            this.mouseButtons = {
+                LEFT: MOUSE.ROTATE,
+                MIDDLE: MOUSE.DOLLY,
+                RIGHT: MOUSE.PAN
+            };
+
+            // Touch fingers
+            this.touches = {
+                ONE: TOUCH.ROTATE,
+                TWO: TOUCH.DOLLY_PAN
+            };
+
+            // for reset
+            this.target0 = this.target.clone( );
+            this.position0 = this.object.position.clone( );
+            this.zoom0 = this.object.zoom;
+
+            // the target DOM element for key events
+            this._domElementKeyEvents = null;
+
+            //
+            // public methods
+            //
+
+            this.getPolarAngle = function( ) {
+
+                return spherical.phi;
+
+            };
+
+            this.getAzimuthalAngle = function( ) {
+
+                return spherical.theta;
+
+            };
+
+            this.getDistance = function( ) {
+
+                return this.object.position.distanceTo( this.target );
+
+            };
+
+            this.listenToKeyEvents = function( domElement ) {
+
+                domElement.addEventListener( 'keydown', onKeyDown );
+                this._domElementKeyEvents = domElement;
+
+            };
+
+            this.saveState = function( ) {
+
+                scope.target0.copy( scope.target );
+                scope.position0.copy( scope.object.position );
+                scope.zoom0 = scope.object.zoom;
+
+            };
+
+            this.reset = function( ) {
+
+                scope.target.copy( scope.target0 );
+                scope.object.position.copy( scope.position0 );
+                scope.object.zoom = scope.zoom0;
+
+                scope.object.updateProjectionMatrix( );
+                scope.dispatchEvent( _changeEvent );
+
+                scope.update( );
+
+                state = STATE.NONE;
+
+            };
+
+            // this method is exposed, but perhaps it would be better if we can make it private...
+            this.update = function( ) {
+
+                const offset = new Vector3( );
+
+                // so camera.up is the orbit axis
+                const quat = new Quaternion$1( ).setFromUnitVectors( object.up, new Vector3( 0, 1, 0 ) );
+                const quatInverse = quat.clone( ).invert( );
+
+                const lastPosition = new Vector3( );
+                const lastQuaternion = new Quaternion$1( );
+
+                const twoPI = 2 * Math.PI;
+
+                return function update( ) {
+
+                    const position = scope.object.position;
+
+                    offset.copy( position ).sub( scope.target );
+
+                    // rotate offset to "y-axis-is-up" space
+                    offset.applyQuaternion( quat );
+
+                    // angle from z-axis around y-axis
+                    spherical.setFromVector3( offset );
+
+                    if ( scope.autoRotate && state === STATE.NONE ) {
+
+                        rotateLeft( getAutoRotationAngle( ) );
+
+                    }
+
+                    if ( scope.enableDamping ) {
+
+                        spherical.theta += sphericalDelta.theta * scope.dampingFactor;
+                        spherical.phi += sphericalDelta.phi * scope.dampingFactor;
+
+                    } else {
+
+                        spherical.theta += sphericalDelta.theta;
+                        spherical.phi += sphericalDelta.phi;
+
+                    }
+
+                    // restrict theta to be between desired limits
+
+                    let min = scope.minAzimuthAngle;
+                    let max = scope.maxAzimuthAngle;
+
+                    if ( isFinite( min ) && isFinite( max ) ) {
+
+                        if ( min < -Math.PI ) min += twoPI;
+                        else if ( min > Math.PI ) min -= twoPI;
+
+                        if ( max < -Math.PI ) max += twoPI;
+                        else if ( max > Math.PI ) max -= twoPI;
+
+                        if ( min <= max ) {
+
+                            spherical.theta = Math.max( min, Math.min( max, spherical.theta ) );
+
+                        } else {
+
+                            spherical.theta = ( spherical.theta > ( min + max ) / 2 ) ?
+                                Math.max( min, spherical.theta ) :
+                                Math.min( max, spherical.theta );
+
+                        }
+
+                    }
+
+                    // restrict phi to be between desired limits
+                    spherical.phi = Math.max( scope.minPolarAngle, Math.min( scope.maxPolarAngle, spherical.phi ) );
+
+                    spherical.makeSafe( );
+
+
+                    spherical.radius *= scale;
+
+                    // restrict radius to be between desired limits
+                    spherical.radius = Math.max( scope.minDistance, Math.min( scope.maxDistance, spherical.radius ) );
+
+                    // move target to panned location
+
+                    if ( scope.enableDamping === true ) {
+
+                        scope.target.addScaledVector( panOffset, scope.dampingFactor );
+
+                    } else {
+
+                        scope.target.add( panOffset );
+
+                    }
+
+                    offset.setFromSpherical( spherical );
+
+                    // rotate offset back to "camera-up-vector-is-up" space
+                    offset.applyQuaternion( quatInverse );
+
+                    position.copy( scope.target ).add( offset );
+
+                    scope.object.lookAt( scope.target );
+
+                    if ( scope.enableDamping === true ) {
+
+                        sphericalDelta.theta *= ( 1 - scope.dampingFactor );
+                        sphericalDelta.phi *= ( 1 - scope.dampingFactor );
+
+                        panOffset.multiplyScalar( 1 - scope.dampingFactor );
+
+                    } else {
+
+                        sphericalDelta.set( 0, 0, 0 );
+
+                        panOffset.set( 0, 0, 0 );
+
+                    }
+
+                    scale = 1;
+
+                    // update condition is:
+                    // min(camera displacement, camera rotation in radians)^2 > EPS
+                    // using small-angle approximation cos(x/2) = 1 - x^2 / 8
+
+                    if ( zoomChanged ||
+                        lastPosition.distanceToSquared( scope.object.position ) > EPS ||
+                        8 * ( 1 - lastQuaternion.dot( scope.object.quaternion ) ) > EPS ) {
+
+                        scope.dispatchEvent( _changeEvent );
+
+                        lastPosition.copy( scope.object.position );
+                        lastQuaternion.copy( scope.object.quaternion );
+                        zoomChanged = false;
+
+                        return true;
+
+                    }
+
+                    return false;
+
+                };
+
+            }( );
+
+            this.dispose = function( ) {
+
+                scope.domElement.removeEventListener( 'contextmenu', onContextMenu );
+
+                scope.domElement.removeEventListener( 'pointerdown', onPointerDown );
+                scope.domElement.removeEventListener( 'pointercancel', onPointerCancel );
+                scope.domElement.removeEventListener( 'wheel', onMouseWheel );
+
+                scope.domElement.removeEventListener( 'pointermove', onPointerMove );
+                scope.domElement.removeEventListener( 'pointerup', onPointerUp );
+
+
+                if ( scope._domElementKeyEvents !== null ) {
+
+                    scope._domElementKeyEvents.removeEventListener( 'keydown', onKeyDown );
+
+                }
+
+                //scope.dispatchEvent( { type: 'dispose' } ); // should this be added here?
+
+            };
+
+            //
+            // internals
+            //
+
+            const scope = this;
+
+            const STATE = {
+                NONE: -1,
+                ROTATE: 0,
+                DOLLY: 1,
+                PAN: 2,
+                TOUCH_ROTATE: 3,
+                TOUCH_PAN: 4,
+                TOUCH_DOLLY_PAN: 5,
+                TOUCH_DOLLY_ROTATE: 6
+            };
+
+            let state = STATE.NONE;
+
+            const EPS = 0.000001;
+
+            // current position in spherical coordinates
+            const spherical = new Spherical( );
+            const sphericalDelta = new Spherical( );
+
+            let scale = 1;
+            const panOffset = new Vector3( );
+            let zoomChanged = false;
+
+            const rotateStart = new Vector2( );
+            const rotateEnd = new Vector2( );
+            const rotateDelta = new Vector2( );
+
+            const panStart = new Vector2( );
+            const panEnd = new Vector2( );
+            const panDelta = new Vector2( );
+
+            const dollyStart = new Vector2( );
+            const dollyEnd = new Vector2( );
+            const dollyDelta = new Vector2( );
+
+            const pointers = [ ];
+            const pointerPositions = {};
+
+            function getAutoRotationAngle( ) {
+
+                return 2 * Math.PI / 60 / 60 * scope.autoRotateSpeed;
+
+            }
+
+            function getZoomScale( ) {
+
+                return Math.pow( 0.95, scope.zoomSpeed );
+
+            }
+
+            function rotateLeft( angle ) {
+
+                sphericalDelta.theta -= angle;
+
+            }
+
+            function rotateUp( angle ) {
+
+                sphericalDelta.phi -= angle;
+
+            }
+
+            const panLeft = function( ) {
+
+                const v = new Vector3( );
+
+                return function panLeft( distance, objectMatrix ) {
+
+                    v.setFromMatrixColumn( objectMatrix, 0 ); // get X column of objectMatrix
+                    v.multiplyScalar( -distance );
+
+                    panOffset.add( v );
+
+                };
+
+            }( );
+
+            const panUp = function( ) {
+
+                const v = new Vector3( );
+
+                return function panUp( distance, objectMatrix ) {
+
+                    if ( scope.screenSpacePanning === true ) {
+
+                        v.setFromMatrixColumn( objectMatrix, 1 );
+
+                    } else {
+
+                        v.setFromMatrixColumn( objectMatrix, 0 );
+                        v.crossVectors( scope.object.up, v );
+
+                    }
+
+                    v.multiplyScalar( distance );
+
+                    panOffset.add( v );
+
+                };
+
+            }( );
+
+            // deltaX and deltaY are in pixels; right and down are positive
+            const pan = function( ) {
+
+                const offset = new Vector3( );
+
+                return function pan( deltaX, deltaY ) {
+
+                    const element = scope.domElement;
+
+                    if ( scope.object.isPerspectiveCamera ) {
+
+                        // perspective
+                        const position = scope.object.position;
+                        offset.copy( position ).sub( scope.target );
+                        let targetDistance = offset.length( );
+
+                        // half of the fov is center to top of screen
+                        targetDistance *= Math.tan( ( scope.object.fov / 2 ) * Math.PI / 180.0 );
+
+                        // we use only clientHeight here so aspect ratio does not distort speed
+                        panLeft( 2 * deltaX * targetDistance / element.clientHeight, scope.object.matrix );
+                        panUp( 2 * deltaY * targetDistance / element.clientHeight, scope.object.matrix );
+
+                    } else if ( scope.object.isOrthographicCamera ) {
+
+                        // orthographic
+                        panLeft( deltaX * ( scope.object.right - scope.object.left ) / scope.object.zoom / element.clientWidth, scope.object.matrix );
+                        panUp( deltaY * ( scope.object.top - scope.object.bottom ) / scope.object.zoom / element.clientHeight, scope.object.matrix );
+
+                    } else {
+
+                        // camera neither orthographic nor perspective
+                        console.warn( 'WARNING: OrbitControls.js encountered an unknown camera type - pan disabled.' );
+                        scope.enablePan = false;
+
+                    }
+
+                };
+
+            }( );
+
+            function dollyOut( dollyScale ) {
+
+                if ( scope.object.isPerspectiveCamera ) {
+
+                    scale /= dollyScale;
+
+                } else if ( scope.object.isOrthographicCamera ) {
+
+                    scope.object.zoom = Math.max( scope.minZoom, Math.min( scope.maxZoom, scope.object.zoom * dollyScale ) );
+                    scope.object.updateProjectionMatrix( );
+                    zoomChanged = true;
+
+                } else {
+
+                    console.warn( 'WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.' );
+                    scope.enableZoom = false;
+
+                }
+
+            }
+
+            function dollyIn( dollyScale ) {
+
+                if ( scope.object.isPerspectiveCamera ) {
+
+                    scale *= dollyScale;
+
+                } else if ( scope.object.isOrthographicCamera ) {
+
+                    scope.object.zoom = Math.max( scope.minZoom, Math.min( scope.maxZoom, scope.object.zoom / dollyScale ) );
+                    scope.object.updateProjectionMatrix( );
+                    zoomChanged = true;
+
+                } else {
+
+                    console.warn( 'WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.' );
+                    scope.enableZoom = false;
+
+                }
+
+            }
+
+            //
+            // event callbacks - update the object state
+            //
+
+            function handleMouseDownRotate( event ) {
+
+                rotateStart.set( event.clientX, event.clientY );
+
+            }
+
+            function handleMouseDownDolly( event ) {
+
+                dollyStart.set( event.clientX, event.clientY );
+
+            }
+
+            function handleMouseDownPan( event ) {
+
+                panStart.set( event.clientX, event.clientY );
+
+            }
+
+            function handleMouseMoveRotate( event ) {
+
+                rotateEnd.set( event.clientX, event.clientY );
+
+                rotateDelta.subVectors( rotateEnd, rotateStart ).multiplyScalar( scope.rotateSpeed );
+
+                const element = scope.domElement;
+
+                rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientHeight ); // yes, height
+
+                rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight );
+
+                rotateStart.copy( rotateEnd );
+
+                scope.update( );
+
+            }
+
+            function handleMouseMoveDolly( event ) {
+
+                dollyEnd.set( event.clientX, event.clientY );
+
+                dollyDelta.subVectors( dollyEnd, dollyStart );
+
+                if ( dollyDelta.y > 0 ) {
+
+                    dollyOut( getZoomScale( ) );
+
+                } else if ( dollyDelta.y < 0 ) {
+
+                    dollyIn( getZoomScale( ) );
+
+                }
+
+                dollyStart.copy( dollyEnd );
+
+                scope.update( );
+
+            }
+
+            function handleMouseMovePan( event ) {
+
+                panEnd.set( event.clientX, event.clientY );
+
+                panDelta.subVectors( panEnd, panStart ).multiplyScalar( scope.panSpeed );
+
+                pan( panDelta.x, panDelta.y );
+
+                panStart.copy( panEnd );
+
+                scope.update( );
+
+            }
+
+            function handleMouseWheel( event ) {
+
+                if ( event.deltaY < 0 ) {
+
+                    dollyIn( getZoomScale( ) );
+
+                } else if ( event.deltaY > 0 ) {
+
+                    dollyOut( getZoomScale( ) );
+
+                }
+
+                scope.update( );
+
+            }
+
+            function handleKeyDown( event ) {
+
+                let needsUpdate = false;
+
+                switch ( event.code ) {
+
+                    case scope.keys.UP:
+                        pan( 0, scope.keyPanSpeed );
+                        needsUpdate = true;
+                        break;
+
+                    case scope.keys.BOTTOM:
+                        pan( 0, -scope.keyPanSpeed );
+                        needsUpdate = true;
+                        break;
+
+                    case scope.keys.LEFT:
+                        pan( scope.keyPanSpeed, 0 );
+                        needsUpdate = true;
+                        break;
+
+                    case scope.keys.RIGHT:
+                        pan( -scope.keyPanSpeed, 0 );
+                        needsUpdate = true;
+                        break;
+
+                }
+
+                if ( needsUpdate ) {
+
+                    // prevent the browser from scrolling on cursor keys
+                    event.preventDefault( );
+
+                    scope.update( );
+
+                }
+
+
+            }
+
+            function handleTouchStartRotate( ) {
+
+                if ( pointers.length === 1 ) {
+
+                    rotateStart.set( pointers[ 0 ].pageX, pointers[ 0 ].pageY );
+
+                } else {
+
+                    const x = 0.5 * ( pointers[ 0 ].pageX + pointers[ 1 ].pageX );
+                    const y = 0.5 * ( pointers[ 0 ].pageY + pointers[ 1 ].pageY );
+
+                    rotateStart.set( x, y );
+
+                }
+
+            }
+
+            function handleTouchStartPan( ) {
+
+                if ( pointers.length === 1 ) {
+
+                    panStart.set( pointers[ 0 ].pageX, pointers[ 0 ].pageY );
+
+                } else {
+
+                    const x = 0.5 * ( pointers[ 0 ].pageX + pointers[ 1 ].pageX );
+                    const y = 0.5 * ( pointers[ 0 ].pageY + pointers[ 1 ].pageY );
+
+                    panStart.set( x, y );
+
+                }
+
+            }
+
+            function handleTouchStartDolly( ) {
+
+                const dx = pointers[ 0 ].pageX - pointers[ 1 ].pageX;
+                const dy = pointers[ 0 ].pageY - pointers[ 1 ].pageY;
+
+                const distance = Math.sqrt( dx * dx + dy * dy );
+
+                dollyStart.set( 0, distance );
+
+            }
+
+            function handleTouchStartDollyPan( ) {
+
+                if ( scope.enableZoom ) handleTouchStartDolly( );
+
+                if ( scope.enablePan ) handleTouchStartPan( );
+
+            }
+
+            function handleTouchStartDollyRotate( ) {
+
+                if ( scope.enableZoom ) handleTouchStartDolly( );
+
+                if ( scope.enableRotate ) handleTouchStartRotate( );
+
+            }
+
+            function handleTouchMoveRotate( event ) {
+
+                if ( pointers.length == 1 ) {
+
+                    rotateEnd.set( event.pageX, event.pageY );
+
+                } else {
+
+                    const position = getSecondPointerPosition( event );
+
+                    const x = 0.5 * ( event.pageX + position.x );
+                    const y = 0.5 * ( event.pageY + position.y );
+
+                    rotateEnd.set( x, y );
+
+                }
+
+                rotateDelta.subVectors( rotateEnd, rotateStart ).multiplyScalar( scope.rotateSpeed );
+
+                const element = scope.domElement;
+
+                rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientHeight ); // yes, height
+
+                rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight );
+
+                rotateStart.copy( rotateEnd );
+
+            }
+
+            function handleTouchMovePan( event ) {
+
+                if ( pointers.length === 1 ) {
+
+                    panEnd.set( event.pageX, event.pageY );
+
+                } else {
+
+                    const position = getSecondPointerPosition( event );
+
+                    const x = 0.5 * ( event.pageX + position.x );
+                    const y = 0.5 * ( event.pageY + position.y );
+
+                    panEnd.set( x, y );
+
+                }
+
+                panDelta.subVectors( panEnd, panStart ).multiplyScalar( scope.panSpeed );
+
+                pan( panDelta.x, panDelta.y );
+
+                panStart.copy( panEnd );
+
+            }
+
+            function handleTouchMoveDolly( event ) {
+
+                const position = getSecondPointerPosition( event );
+
+                const dx = event.pageX - position.x;
+                const dy = event.pageY - position.y;
+
+                const distance = Math.sqrt( dx * dx + dy * dy );
+
+                dollyEnd.set( 0, distance );
+
+                dollyDelta.set( 0, Math.pow( dollyEnd.y / dollyStart.y, scope.zoomSpeed ) );
+
+                dollyOut( dollyDelta.y );
+
+                dollyStart.copy( dollyEnd );
+
+            }
+
+            function handleTouchMoveDollyPan( event ) {
+
+                if ( scope.enableZoom ) handleTouchMoveDolly( event );
+
+                if ( scope.enablePan ) handleTouchMovePan( event );
+
+            }
+
+            function handleTouchMoveDollyRotate( event ) {
+
+                if ( scope.enableZoom ) handleTouchMoveDolly( event );
+
+                if ( scope.enableRotate ) handleTouchMoveRotate( event );
+
+            }
+
+            //
+            // event handlers - FSM: listen for events and reset state
+            //
+
+            function onPointerDown( event ) {
+
+                if ( scope.enabled === false ) return;
+
+                if ( pointers.length === 0 ) {
+
+                    scope.domElement.setPointerCapture( event.pointerId );
+
+                    scope.domElement.addEventListener( 'pointermove', onPointerMove );
+                    scope.domElement.addEventListener( 'pointerup', onPointerUp );
+
+                }
+
+                //
+
+                addPointer( event );
+
+                if ( event.pointerType === 'touch' ) {
+
+                    onTouchStart( event );
+
+                } else {
+
+                    onMouseDown( event );
+
+                }
+
+            }
+
+            function onPointerMove( event ) {
+
+                if ( scope.enabled === false ) return;
+
+                if ( event.pointerType === 'touch' ) {
+
+                    onTouchMove( event );
+
+                } else {
+
+                    onMouseMove( event );
+
+                }
+
+            }
+
+            function onPointerUp( event ) {
+
+                removePointer( event );
+
+                if ( pointers.length === 0 ) {
+
+                    scope.domElement.releasePointerCapture( event.pointerId );
+
+                    scope.domElement.removeEventListener( 'pointermove', onPointerMove );
+                    scope.domElement.removeEventListener( 'pointerup', onPointerUp );
+
+                }
+
+                scope.dispatchEvent( _endEvent );
+
+                state = STATE.NONE;
+
+            }
+
+            function onPointerCancel( event ) {
+
+                removePointer( event );
+
+            }
+
+            function onMouseDown( event ) {
+
+                let mouseAction;
+
+                switch ( event.button ) {
+
+                    case 0:
+
+                        mouseAction = scope.mouseButtons.LEFT;
+                        break;
+
+                    case 1:
+
+                        mouseAction = scope.mouseButtons.MIDDLE;
+                        break;
+
+                    case 2:
+
+                        mouseAction = scope.mouseButtons.RIGHT;
+                        break;
+
+                    default:
+
+                        mouseAction = -1;
+
+                }
+
+                switch ( mouseAction ) {
+
+                    case MOUSE.DOLLY:
+
+                        if ( scope.enableZoom === false ) return;
+
+                        handleMouseDownDolly( event );
+
+                        state = STATE.DOLLY;
+
+                        break;
+
+                    case MOUSE.ROTATE:
+
+                        if ( event.ctrlKey || event.metaKey || event.shiftKey ) {
+
+                            if ( scope.enablePan === false ) return;
+
+                            handleMouseDownPan( event );
+
+                            state = STATE.PAN;
+
+                        } else {
+
+                            if ( scope.enableRotate === false ) return;
+
+                            handleMouseDownRotate( event );
+
+                            state = STATE.ROTATE;
+
+                        }
+
+                        break;
+
+                    case MOUSE.PAN:
+
+                        if ( event.ctrlKey || event.metaKey || event.shiftKey ) {
+
+                            if ( scope.enableRotate === false ) return;
+
+                            handleMouseDownRotate( event );
+
+                            state = STATE.ROTATE;
+
+                        } else {
+
+                            if ( scope.enablePan === false ) return;
+
+                            handleMouseDownPan( event );
+
+                            state = STATE.PAN;
+
+                        }
+
+                        break;
+
+                    default:
+
+                        state = STATE.NONE;
+
+                }
+
+                if ( state !== STATE.NONE ) {
+
+                    scope.dispatchEvent( _startEvent );
+
+                }
+
+            }
+
+            function onMouseMove( event ) {
+
+                if ( scope.enabled === false ) return;
+
+                switch ( state ) {
+
+                    case STATE.ROTATE:
+
+                        if ( scope.enableRotate === false ) return;
+
+                        handleMouseMoveRotate( event );
+
+                        break;
+
+                    case STATE.DOLLY:
+
+                        if ( scope.enableZoom === false ) return;
+
+                        handleMouseMoveDolly( event );
+
+                        break;
+
+                    case STATE.PAN:
+
+                        if ( scope.enablePan === false ) return;
+
+                        handleMouseMovePan( event );
+
+                        break;
+
+                }
+
+            }
+
+            function onMouseWheel( event ) {
+
+                if ( scope.enabled === false || scope.enableZoom === false || state !== STATE.NONE ) return;
+
+                event.preventDefault( );
+
+                scope.dispatchEvent( _startEvent );
+
+                handleMouseWheel( event );
+
+                scope.dispatchEvent( _endEvent );
+
+            }
+
+            function onKeyDown( event ) {
+
+                if ( scope.enabled === false || scope.enablePan === false ) return;
+
+                handleKeyDown( event );
+
+            }
+
+            function onTouchStart( event ) {
+
+                trackPointer( event );
+
+                switch ( pointers.length ) {
+
+                    case 1:
+
+                        switch ( scope.touches.ONE ) {
+
+                            case TOUCH.ROTATE:
+
+                                if ( scope.enableRotate === false ) return;
+
+                                handleTouchStartRotate( );
+
+                                state = STATE.TOUCH_ROTATE;
+
+                                break;
+
+                            case TOUCH.PAN:
+
+                                if ( scope.enablePan === false ) return;
+
+                                handleTouchStartPan( );
+
+                                state = STATE.TOUCH_PAN;
+
+                                break;
+
+                            default:
+
+                                state = STATE.NONE;
+
+                        }
+
+                        break;
+
+                    case 2:
+
+                        switch ( scope.touches.TWO ) {
+
+                            case TOUCH.DOLLY_PAN:
+
+                                if ( scope.enableZoom === false && scope.enablePan === false ) return;
+
+                                handleTouchStartDollyPan( );
+
+                                state = STATE.TOUCH_DOLLY_PAN;
+
+                                break;
+
+                            case TOUCH.DOLLY_ROTATE:
+
+                                if ( scope.enableZoom === false && scope.enableRotate === false ) return;
+
+                                handleTouchStartDollyRotate( );
+
+                                state = STATE.TOUCH_DOLLY_ROTATE;
+
+                                break;
+
+                            default:
+
+                                state = STATE.NONE;
+
+                        }
+
+                        break;
+
+                    default:
+
+                        state = STATE.NONE;
+
+                }
+
+                if ( state !== STATE.NONE ) {
+
+                    scope.dispatchEvent( _startEvent );
+
+                }
+
+            }
+
+            function onTouchMove( event ) {
+
+                trackPointer( event );
+
+                switch ( state ) {
+
+                    case STATE.TOUCH_ROTATE:
+
+                        if ( scope.enableRotate === false ) return;
+
+                        handleTouchMoveRotate( event );
+
+                        scope.update( );
+
+                        break;
+
+                    case STATE.TOUCH_PAN:
+
+                        if ( scope.enablePan === false ) return;
+
+                        handleTouchMovePan( event );
+
+                        scope.update( );
+
+                        break;
+
+                    case STATE.TOUCH_DOLLY_PAN:
+
+                        if ( scope.enableZoom === false && scope.enablePan === false ) return;
+
+                        handleTouchMoveDollyPan( event );
+
+                        scope.update( );
+
+                        break;
+
+                    case STATE.TOUCH_DOLLY_ROTATE:
+
+                        if ( scope.enableZoom === false && scope.enableRotate === false ) return;
+
+                        handleTouchMoveDollyRotate( event );
+
+                        scope.update( );
+
+                        break;
+
+                    default:
+
+                        state = STATE.NONE;
+
+                }
+
+            }
+
+            function onContextMenu( event ) {
+
+                if ( scope.enabled === false ) return;
+
+                event.preventDefault( );
+
+            }
+
+            function addPointer( event ) {
+
+                pointers.push( event );
+
+            }
+
+            function removePointer( event ) {
+
+                delete pointerPositions[ event.pointerId ];
+
+                for ( let i = 0; i < pointers.length; i++ ) {
+
+                    if ( pointers[ i ].pointerId == event.pointerId ) {
+
+                        pointers.splice( i, 1 );
+                        return;
+
+                    }
+
+                }
+
+            }
+
+            function trackPointer( event ) {
+
+                let position = pointerPositions[ event.pointerId ];
+
+                if ( position === undefined ) {
+
+                    position = new Vector2( );
+                    pointerPositions[ event.pointerId ] = position;
+
+                }
+
+                position.set( event.pageX, event.pageY );
+
+            }
+
+            function getSecondPointerPosition( event ) {
+
+                const pointer = ( event.pointerId === pointers[ 0 ].pointerId ) ? pointers[ 1 ] : pointers[ 0 ];
+
+                return pointerPositions[ pointer.pointerId ];
+
+            }
+
+            //
+
+            scope.domElement.addEventListener( 'contextmenu', onContextMenu );
+
+            scope.domElement.addEventListener( 'pointerdown', onPointerDown );
+            scope.domElement.addEventListener( 'pointercancel', onPointerCancel );
+            scope.domElement.addEventListener( 'wheel', onMouseWheel, {
+                passive: false
+            } );
+
+            // force an update at start
+
+            this.update( );
+
+        }
+
+    }
+
     // https://github.com/mrdoob/three.js/issues/5552
     // http://en.wikipedia.org/wiki/RGBE_image_format
 
@@ -44481,21 +45984,31 @@
     const X_BUTTON = 3;
 
     class Property {
-        constructor( cost, rent ) {
+        constructor( cost, rent, houseCost, houseRents, axis, value, direction ) {
             this.numHouses = 0;
             this.mortaged = false;
             this.type = "property";
-            this.rent = rent;
-            this.cost = cost;
             this.owner = null;
+            this.table = {
+                cost,
+                houseCost,
+                rents: [ rent, ...houseRents ],
+                mortgage: cost / 2,
+                houseMortgage: houseCost / 2
+            };
+            this.initHousePos = new Vector3;
+            this.initHousePos[ axis ] = value;
+            this.initHousePos[ axis == "z" ? "x" : "z" ] = 560 * direction;
+            this.axis = axis;
+            this.instanceId = ( Property.PROPERTY_COUNT++ ) * 4;
         }
         async onLand( player ) {
             const scope = this;
             if ( !this.owner ) {
-                if ( player.money >= this.cost ) {
+                if ( player.money >= this.table.cost ) {
                     player.awaitButtonPress( [ B_BUTTON, A_BUTTON ] ).then( button => {
                         if ( button == 1 ) {
-                            player.money -= scope.cost;
+                            player.money -= scope.table.cost;
                             scope.owner = player;
                             player.properties.push( scope );
                             player.propertyCount++;
@@ -44506,14 +46019,63 @@
                 if ( this.owner.inJail )
                     return;
                 this.owner.awaitButtonPressFor( [ X_BUTTON ], 20000 ).then( ( ) => {
-                    player.money -= scope.rent;
-                    scope.owner.money += scope.rent;
+                    player.money -= scope.table.rents[ scope.numHouses ];
+                    scope.owner.money += scope.table.rents[ scope.numHouses ];
                 } ).catch( ( ) => {
                     console.log( scope.owner.name + " Forgot to collect on their rent" );
                 } );
             }
         }
+        addHouse( ) {
+            const scope = this;
+            return new Promise( ( resolve, reject ) => {
+                if ( scope.owner.money >= scope.table.houseCost ) {
+                    scope.owner.money -= scope.table.houseCost;
+                    const {
+                        fromIObj,
+                        toIObj,
+                        houseMesh
+                    } = Globals;
+                    const v0 = new Vector3,
+                        v1 = new Vector3,
+                        q0 = new Quaternion$1( ),
+                        q1 = new Quaternion$1( );
+                    const p = new Vector3,
+                        s = new Vector3( 1, 1, 1 ),
+                        q = new Quaternion$1,
+                        m = new Matrix4;
+                    const i = scope.instanceId + scope.numHouses;
+                    fromIObj.a = 0;
+                    toIObj.a = 1;
+                    v1.copy( scope.initHousePos );
+                    v1[ scope.axis ] -= Property.HOUSE_WIDTH * scope.numHouses;
+                    scope.numHouses++;
+                    v0.copy( v1 );
+                    v0.negate( );
+                    v0.setLength( 1500 );
+                    q0.set( 0, 0, 0, 1 );
+                    if ( scope.axis == "x" ) {
+                        q1.set( 0, 0, 0, 1 );
+                    } else {
+                        q1.set( 0, Math.SQRT1_2, 0, Math.SQRT1_2 );
+                    }
+                    new Tween( fromIObj ).to( toIObj, 7000 ).onUpdate( ( {
+                        a
+                    } ) => {
+                        p.lerpVectors( v0, v1, a );
+                        q.slerpQuaternions( q0, q1, a );
+                        m.compose( p, q, s );
+                        houseMesh.setMatrixAt( i, m );
+                        houseMesh.instanceMatrix.needsUpdate = true;
+                    } ).onComplete( ( ) => {
+                        resolve( );
+                    } ).easing( Easing.Bounce.Out ).start( );
+                }
+            } );
+        }
     }
+    Property.HOUSE_WIDTH = 28;
+    Property.PROPERTY_COUNT = 0;
 
     class TaxTile {
         constructor( tax ) {
@@ -44533,45 +46095,45 @@
     Globals.players = [ ];
     Globals.tiles = [
         new GoTile( ),
-        new Property( 60, 4 ),
+        new Property( 60, 2, 50, [ 10, 30, 90, 160 ], "x", 517, 1 ),
         new CommunityChest( ),
-        new Property( 60, 2 ),
+        new Property( 60, 4, 50, [ 20, 60, 180, 320 ], "x", 280, 1 ),
         new TaxTile( 200 ),
-        new Property( 200, 50 ),
-        new Property( 100, 6 ),
+        new Property( 200, 50, 0, [ 50, 50, 50, 50 ], "x", 45, 1 ),
+        new Property( 100, 6, 50, [ 30, 90, 270, 400 ], "x", -77, 1 ),
         new ChanceTile( ),
-        new Property( 100, 6 ),
-        new Property( 120, 8 ),
+        new Property( 100, 6, 50, [ 30, 90, 270, 400 ], "x", -312, 1 ),
+        new Property( 120, 8, 50, [ 40, 100, 300, 450 ], "x", -430, 1 ),
         new FreeParking( ),
-        new Property( 140, 10 ),
-        new Property( 150, 75 ),
-        new Property( 140, 10 ),
-        new Property( 160, 12 ),
-        new Property( 200, 75 ),
-        new Property( 180, 14 ),
-        new Property( 180, 14 ),
+        new Property( 140, 10, 100, [ 50, 150, 450, 625 ], "z", 517, -1 ),
+        new Property( 150, 75, 0, [ 75, 75, 75, 75 ], "z", 400, -1 ),
+        new Property( 140, 10, 100, [ 50, 150, 450, 625 ], "z", 280, -1 ),
+        new Property( 160, 12, 100, [ 60, 180, 500, 700 ], "z", 160, -1 ),
+        new Property( 200, 75, 0, [ 75, 75, 75, 75 ], "z", 44, -1 ),
+        new Property( 180, 14, 100, [ 70, 200, 550, 750 ], "z", -77, -1 ),
         new CommunityChest( ),
-        new Property( 100, 16 ),
+        new Property( 180, 14, 100, [ 70, 200, 550, 750 ], "z", -314, -1 ),
+        new Property( 100, 16, 100, [ 80, 220, 600, 800 ], "z", -432, -1 ),
         new FreeParking( ),
-        new Property( 220, 18 ),
+        new Property( 220, 18, 150, [ 90, 250, 700, 875 ], "x", -430, -1 ),
         new ChanceTile( ),
-        new Property( 220, 18 ),
-        new Property( 240, 20 ),
-        new Property( 200, 125 ),
-        new Property( 260, 22 ),
-        new Property( 260, 22 ),
-        new Property( 150, 75 ),
-        new Property( 280, 24 ),
+        new Property( 220, 18, 150, [ 90, 250, 700, 875 ], "x", -195, -1 ),
+        new Property( 240, 20, 150, [ 100, 300, 750, 925 ], "x", -77, -1 ),
+        new Property( 200, 125, 0, [ 125, 125, 125, 125 ], "x", 45, -1 ),
+        new Property( 260, 22, 150, [ 110, 330, 800, 975 ], "x", 162, -1 ),
+        new Property( 260, 22, 150, [ 110, 30, 800, 975 ], "x", 280, -1 ),
+        new Property( 150, 75, 0, [ 75, 75, 75, 75 ], "x", 398, -1 ),
+        new Property( 280, 24, 150, [ 120, 360, 850, 1025 ], "x", 517, -1 ),
         new GoToJail( ),
-        new Property( 300, 26 ),
-        new Property( 300, 26 ),
+        new Property( 300, 26, 200, [ 130, 390, 900, 1100 ], "z", -432, 1 ),
+        new Property( 300, 26, 200, [ 130, 390, 900, 1100 ], "z", -314, 1 ),
         new CommunityChest( ),
-        new Property( 320, 28 ),
-        new Property( 200, 200 ),
+        new Property( 320, 28, 200, [ 150, 450, 1000, 1200 ], "z", -77, 1 ),
+        new Property( 200, 200, 0, [ 200, 200, 200, 200 ], "z", 44, 1 ),
         new ChanceTile( ),
-        new Property( 350, 35 ),
+        new Property( 350, 35, 200, [ 175, 500, 1100, 1300 ], "z", 280, 1 ),
         new TaxTile( 75 ),
-        new Property( 400, 50 )
+        new Property( 400, 50, 200, [ 200, 600, 1400, 1700 ], "z", 517, 1 )
     ];
     Globals.v0 = new Vector3( );
     Globals.v1 = new Vector3( );
@@ -44600,16 +46162,17 @@
     ], true );
     const v0$1 = new Vector3( );
     class Player {
-        constructor( gamepad, name, token ) {
+        constructor( id, name, token ) {
             this.money = 1500;
             this.propertyCount = 0;
             this.properties = [ ];
             this.inJail = false;
+            this.jailTurns = 0;
             this.chanceCard = null;
             this.communityChestCard = null;
             this.currentPos = 0;
             this.statsPanel = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" );
-            this.gamepad = gamepad;
+            this.gamepadId = id;
             this.name = name;
             this.statsPanel.className = "stats";
             this.token = token;
@@ -44617,12 +46180,15 @@
             curve.getPointAt( 0.01, v0$1 );
             this.token.lookAt( v0$1 );
         }
+        getGamepad( ) {
+            return navigator.getGamepads( )[ this.gamepadId ];
+        }
         awaitButtonPress( allowedButtons ) {
             const scope = this;
             const p = new Promise( ( resolve, reject ) => {
                 const int = setInterval( ( ) => {
                     for ( const button of allowedButtons ) {
-                        if ( scope.gamepad.buttons[ button ].pressed ) {
+                        if ( scope.getGamepad( ).buttons[ button ].pressed ) {
                             clearInterval( int );
                             resolve( button );
                         }
@@ -44636,7 +46202,7 @@
             const p = new Promise( ( resolve, reject ) => {
                 const i = setInterval( ( ) => {
                     for ( const button of allowedButtons ) {
-                        if ( scope.gamepad.buttons[ button ].pressed ) {
+                        if ( scope.getGamepad( ).buttons[ button ].pressed ) {
                             clearInterval( i );
                             clearTimeout( t );
                             resolve( button );
@@ -53497,9 +55063,9 @@
     Dice.clock = new Clock( );
 
     const {
-        innerWidth: l,
-        innerHeight: d
-    } = window, m = new WebGLRenderer, c = ( m.setSize( l, d ), m.setClearColor( 12571109 ), document.body.appendChild( m.domElement ), new Scene ), _ = new PerspectiveCamera( 75, l / d, 100, 3e3 ), u = ( _.position.y = 1e3, _.position.x = 2e3, Globals.camera = _, new DirectionalLight ), b = ( c.add( u ), new PMREMGenerator( m ) ), h = new LoadingManager, p = new GLTFLoader( h ), g = {
+        innerWidth: d,
+        innerHeight: c
+    } = window, u = new WebGLRenderer, h = ( u.setSize( d, c ), u.setClearColor( 12571109 ), document.body.appendChild( u.domElement ), new Scene ), _ = new PerspectiveCamera( 75, d / c, 100, 3e3 ), g = ( _.position.y = 1e3, _.position.x = 2e3, Globals.camera = _, new DirectionalLight ), p = ( h.add( g ), new PMREMGenerator( u ) ), b = new LoadingManager, f = new GLTFLoader( b ), w = {
         tokens: {
             hat: null,
             iron: null,
@@ -53509,27 +55075,38 @@
         board: null
     };
     new GUI$1;
-    const w = ( p.load( "../die.glb", e => {
+    new OrbitControls( _, u.domElement );
+    const D = ( f.load( "../die.glb", e => {
         Dice.init( );
         const t = e.scene.getObjectByName( "Box001_Material_#25_0" );
-        t.geometry.center( ), c.add( Dice.createDie( t ).getMesh( ) ), c.add( Dice.createDie( ).getMesh( ) );
-    } ), p.load( "../board.glb", e => {
+        t.geometry.center( ), h.add( Dice.createDie( t ).getMesh( ) ), h.add( Dice.createDie( ).getMesh( ) );
+    } ), f.load( "../board.glb", e => {
         const t = [ ];
-        for ( const o of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
-            const a = e.scene.getObjectByName( o );
-            a.geometry.rotateX( -Math.PI / 2 ), a.geometry.rotateY( Math.PI / 2 ), c.add( a ), t.push( a );
+        console.log( e );
+        for ( const a of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
+            const r = e.scene.getObjectByName( a );
+            r.geometry.rotateX( -Math.PI / 2 ), r.geometry.rotateY( Math.PI / 2 ), h.add( r ), t.push( r );
         }
-        g.tokens.hat = t[ 0 ], g.tokens.iron = t[ 1 ], g.tokens.barrow = t[ 2 ], g.tokens.thimble = t[ 3 ], g.tokens.barrow.visible = g.tokens.thimble.visible = !1, _.position.set( 0, 975, 0 ), _.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), g.board = e.scene.getObjectByName( "Board_01_-_Default_0" ), g.board.geometry.rotateX( -Math.PI / 2 ), g.board.position.z = -10, c.add( g.board );
-    } ), h.onLoad = async function( ) {
-        const e = new Player( null, "Daniel", g.tokens.iron );
-        await e.moveForward( 7 );
+        w.tokens.hat = t[ 0 ], w.tokens.iron = t[ 1 ], w.tokens.barrow = t[ 2 ], w.tokens.thimble = t[ 3 ], w.tokens.barrow.visible = w.tokens.thimble.visible = !1, _.position.set( 0, 975, 0 ), _.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), w.board = e.scene.getObjectByName( "Board_01_-_Default_0" ), w.board.geometry.rotateX( -Math.PI / 2 ), w.board.position.y = -5, h.add( w.board );
+        const o = e.scene.getObjectByName( "House_07_-_Default_0" );
+        o.geometry.rotateX( -Math.PI / 2 ), o.geometry.scale( 1 / 3, 1 / 3, 1 / 3 ), Globals.houseMesh = new InstancedMesh( o.geometry, o.material, 112 ), Globals.houseMesh.instanceMatrix.setUsage( DynamicDrawUsage ), h.add( Globals.houseMesh );
+    } ), b.onLoad = async function( ) {
+        const e = new Player( 0, "Daniel", w.tokens.iron );
+        e.money = 1 / 0;
+        for ( const t of Globals.tiles ) t instanceof Property && ( t.owner = e, t.addHouse( ), await L( 125 ), t.addHouse( ), await L( 125 ), t.addHouse( ), await L( 125 ), t.addHouse( ), await L( 125 ) );
     }, new RGBELoader );
 
-    function y( ) {
-        update( ), Dice.update( ), m.render( c, _ ), requestAnimationFrame( y );
+    function P( ) {
+        update( ), Dice.update( ), u.render( h, _ ), requestAnimationFrame( P );
     }
-    w.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
-        c.environment = b.fromEquirectangular( e ).texture;
-    } ), y( );
+
+    function L( t ) {
+        return new Promise( e => {
+            setTimeout( e, t );
+        } )
+    }
+    D.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
+        h.environment = p.fromEquirectangular( e ).texture;
+    } ), P( );
 
 } )( );

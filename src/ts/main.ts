@@ -27,6 +27,9 @@ import {
 import {
     Dice
 } from "./logic/Dice";
+import {
+    Property
+} from "./logic/Property";
 
 const {
     innerWidth: width,
@@ -66,7 +69,7 @@ const assets = {
 const gui = new GUI( );
 
 //eslint-disable-next-line no-unused-vars
-// const controls = new OrbitControls( camera, renderer.domElement );
+const controls = new OrbitControls( camera, renderer.domElement );
 
 loader.load( "../die.glb", ( gltf ) => {
     Dice.init( );
@@ -79,6 +82,9 @@ loader.load( "../die.glb", ( gltf ) => {
 loader.load( "../board.glb", ( gltf ) => {
     const names = [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ];
     const tokens: THREE.Mesh[ ] = [ ];
+
+    console.log( gltf );
+
     for ( const name of names ) {
         const o = gltf.scene.getObjectByName( name ) as THREE.Mesh;
         o.geometry.rotateX( -Math.PI / 2 );
@@ -99,14 +105,22 @@ loader.load( "../board.glb", ( gltf ) => {
 
     assets.board = gltf.scene.getObjectByName( "Board_01_-_Default_0" ) as THREE.Mesh;
     assets.board.geometry.rotateX( -Math.PI / 2 );
-    assets.board.position.z = -10;
+    assets.board.position.y = -5;
 
     scene.add( assets.board );
+
+    const house = gltf.scene.getObjectByName( "House_07_-_Default_0" ) as THREE.Mesh;
+    house.geometry.rotateX( -Math.PI / 2 );
+    house.geometry.scale( 1 / 3, 1 / 3, 1 / 3 );
+
+    Globals.houseMesh = new THREE.InstancedMesh( house.geometry, house.material, 112 );
+    Globals.houseMesh.instanceMatrix.setUsage( THREE.DynamicDrawUsage );
+    scene.add( Globals.houseMesh );
 } );
 
 manager.onLoad = async function( ) {
     const p = new Player( 0, "Daniel", assets.tokens.iron );
-    const h = new Player( 1, "Nate", assets.tokens.hat );
+    // const h = new Player( 1, "Nate", assets.tokens.hat );
 
     // for ( let i = 0; i < 5; i++ ) {
     //     await p.moveForward( await Dice.rollDice( ) );
@@ -115,9 +129,23 @@ manager.onLoad = async function( ) {
     //     await wait( 500 );
     // }
 
-    await p.moveForward( 7 );
-    await wait(500);
-    await h.moveForward(7);
+    // await p.moveForward( 7 );
+    // await wait(500);
+    // await h.moveForward(7);
+    p.money = Infinity;
+    for ( const tile of Globals.tiles ) {
+        if ( tile instanceof Property ) {
+            tile.owner = p;
+            tile.addHouse( );
+            await wait( 125 );
+            tile.addHouse( );
+            await wait( 125 );
+            tile.addHouse( );
+            await wait( 125 );
+            tile.addHouse( );
+            await wait( 125 )
+        }
+    }
 }
 
 const hdrLoader = new RGBELoader( );
