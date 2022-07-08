@@ -41,10 +41,10 @@ export class Player {
     awaitButtonPress(allowedButtons) {
         const scope = this;
         const p = new Promise((resolve, reject) => {
-            const int = setInterval(() => {
+            const i = setInterval(() => {
                 for (const button of allowedButtons) {
                     if (scope.getGamepad().buttons[button].pressed) {
-                        clearInterval(int);
+                        clearInterval(i);
                         resolve(button);
                     }
                 }

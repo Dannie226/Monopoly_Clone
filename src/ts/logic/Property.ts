@@ -31,7 +31,7 @@ export class Property implements Tile {
     private static PROPERTY_COUNT = 0;
     type: "property";
     numHouses: number = 0;
-    mortaged: boolean = false;
+    mortgaged: boolean = false;
     owner: Player;
     table: CostTable;
     initHousePos: THREE.Vector3;
@@ -69,13 +69,26 @@ export class Property implements Tile {
                 } );
             }
         } else if ( this.owner !== player ) {
-            if ( this.owner.inJail ) return;
+            if ( this.owner.inJail || this.mortgaged ) return;
             this.owner.awaitButtonPressFor( [ X_BUTTON ], 20000 ).then( ( ) => {
                 player.money -= scope.table.rents[ scope.numHouses ];
                 scope.owner.money += scope.table.rents[ scope.numHouses ];
             } ).catch( ( ) => {
                 console.log( scope.owner.name + " Forgot to collect on their rent" );
             } );
+        }
+    }
+
+    mortgage( ): void {
+        this.mortgaged = true;
+        this.owner.money += this.table.mortgage;
+    }
+
+    unmortgage( ): void {
+        const unmortgageCost = this.table.cost * 1.1;
+        if ( this.owner.money >= unmortgageCost ) {
+            this.owner.money -= unmortgageCost;
+            this.mortgaged = false;
         }
     }
 

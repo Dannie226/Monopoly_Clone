@@ -5,7 +5,7 @@ import { Globals } from "./Globals";
 export class Property {
     constructor(cost, rent, houseCost, houseRents, axis, value, direction) {
         this.numHouses = 0;
-        this.mortaged = false;
+        this.mortgaged = false;
         this.type = "property";
         this.owner = null;
         this.table = {
@@ -36,7 +36,7 @@ export class Property {
             }
         }
         else if (this.owner !== player) {
-            if (this.owner.inJail)
+            if (this.owner.inJail || this.mortgaged)
                 return;
             this.owner.awaitButtonPressFor([X_BUTTON], 20000).then(() => {
                 player.money -= scope.table.rents[scope.numHouses];
@@ -44,6 +44,17 @@ export class Property {
             }).catch(() => {
                 console.log(scope.owner.name + " Forgot to collect on their rent");
             });
+        }
+    }
+    mortgage() {
+        this.mortgaged = true;
+        this.owner.money += this.table.mortgage;
+    }
+    unmortgage() {
+        const unmortgageCost = this.table.cost * 1.1;
+        if (this.owner.money >= unmortgageCost) {
+            this.owner.money -= unmortgageCost;
+            this.mortgaged = false;
         }
     }
     addHouse() {
