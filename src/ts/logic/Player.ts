@@ -202,6 +202,7 @@ export class Player {
                 this.inJail = false;
             } else if ( this.jailTurns == 5 ) {
                 this.money -= 50;
+                this.inJail = false;
             } else {
                 const scope = this;
                 this.jailTurns++;
@@ -210,10 +211,10 @@ export class Player {
                 } );
             }
         }
-        return this.goToPosition( this.currentPos + spaces );
+        return this.goToPosition( THREE.MathUtils.euclideanModulo( this.currentPos + spaces, 40 ) );
     }
 
     moveBackward( spaces: number ) {
-        return this.goToPosition( this.currentPos - spaces );
+        return this.goToPosition( THREE.MathUtils.euclideanModulo( this.currentPos - spaces, 40 ) );
     }
 }
