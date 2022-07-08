@@ -85,8 +85,8 @@ export class Player {
         scope.header.innerHTML = this.name;
         scope.body.innerText = `Money: ${this.money}
 Num Properties: ${this.properties.length}
-Properties > A
-Close > Y`;
+Properties > Circle
+Close > Square`;
         const button = await scope.awaitButtonPress([O_BUTTON, SQUARE_BUTTON]);
         if (button == O_BUTTON) {
             await scope.propertyStats();
@@ -108,7 +108,10 @@ Close > Y`;
         }
         function showProperty() {
             propertyId = THREE.MathUtils.euclideanModulo(propertyId, scope.properties.length);
-            scope.body.innerHTML = scope.properties[propertyId].getPropertyName() + " > A\nBack > Y";
+            scope.body.innerText = `${scope.properties[propertyId].getPropertyName()} > Circle
+Back > Square
+Next Property > Triangle
+Previous Property > X`;
         }
         async function onButtonPress() {
             const button = await scope.awaitButtonPress([O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON]);
@@ -121,10 +124,10 @@ Close > Y`;
                 return;
             }
             else if (button == TRIANGLE_BUTTON) {
-                previousProperty();
+                nextProperty();
             }
             else if (button == X_BUTTON) {
-                nextProperty();
+                previousProperty();
             }
             onButtonPress();
         }
@@ -135,10 +138,10 @@ Close > Y`;
         const prop = this.properties[id], scope = this;
         return new Promise((resolve) => {
             this.header.innerHTML = prop.getPropertyName();
-            this.body.innerText = `Add House > A
-    Remove House > B
-    ${prop.mortgaged ? "Unmortgage" : "Mortgage"} Property > X
-    Back > Y`;
+            this.body.innerText = `Add House > Circle
+    Remove House > X
+    ${prop.mortgaged ? "Unmortgage" : "Mortgage"} Property > Triangle
+    Back > Square`;
             async function onButtonPress() {
                 const button = await scope.awaitButtonPress([O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON]);
                 if (button == O_BUTTON) {
