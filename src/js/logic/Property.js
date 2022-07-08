@@ -49,6 +49,10 @@ export class Property {
     addHouse() {
         const scope = this;
         return new Promise((resolve, reject) => {
+            if (scope.numHouses === 4) {
+                resolve();
+                return;
+            }
             if (scope.owner.money >= scope.table.houseCost) {
                 scope.owner.money -= scope.table.houseCost;
                 const { fromIObj, toIObj, houseMesh } = Globals;
@@ -62,7 +66,7 @@ export class Property {
                 scope.numHouses++;
                 v0.copy(v1);
                 v0.negate();
-                v0.setLength(1500);
+                v0.setLength(2000);
                 q0.set(0, 0, 0, 1);
                 if (scope.axis == "x") {
                     q1.set(0, 0, 0, 1);
@@ -80,6 +84,45 @@ export class Property {
                     resolve();
                 }).easing(Easing.Bounce.Out).start();
             }
+            else {
+                resolve();
+            }
+        });
+    }
+    removeHouse() {
+        const scope = this;
+        return new Promise((resolve) => {
+            if (scope.numHouses === 0) {
+                resolve();
+                return;
+            }
+            scope.owner.money += scope.table.houseMortgage;
+            const { fromIObj, toIObj, houseMesh } = Globals;
+            const v0 = new THREE.Vector3, v1 = new THREE.Vector3, q0 = new THREE.Quaternion(), q1 = new THREE.Quaternion();
+            const p = new THREE.Vector3, s = new THREE.Vector3(1, 1, 1), q = new THREE.Quaternion, m = new THREE.Matrix4;
+            scope.numHouses--;
+            const i = scope.instanceId + scope.numHouses;
+            houseMesh.getMatrixAt(i, m);
+            v0.setFromMatrixPosition(m);
+            v1.copy(v0);
+            v1.negate();
+            v1.setLength(2000);
+            q0.setFromRotationMatrix(m);
+            q1.set(0, 0, 0, 1);
+            fromIObj.a = 0;
+            toIObj.a = 1;
+            new Tween(fromIObj).to(toIObj, 7000).onUpdate(({ a }) => {
+                p.lerpVectors(v0, v1, a);
+                q.slerpQuaternions(q0, q1, a);
+                m.compose(p, q, s);
+                houseMesh.setMatrixAt(i, m);
+                houseMesh.instanceMatrix.needsUpdate = true;
+            }).onComplete(() => {
+                m.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                houseMesh.setMatrixAt(i, m);
+                houseMesh.instanceMatrix.needsUpdate = true;
+                resolve();
+            }).easing(Easing.Bounce.In).start();
         });
     }
 }

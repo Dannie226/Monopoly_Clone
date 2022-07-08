@@ -1,13 +1,9 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
 import * as TWEEN from "../libs/tween";
-import { GUI } from "dat.gui";
-import { Player } from "./logic/Player";
 import { Globals } from "./logic/Globals";
 import { Dice } from "./logic/Dice";
-import { Property } from "./logic/Property";
 const { innerWidth: width, innerHeight: height } = window;
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(width, height);
@@ -32,21 +28,16 @@ const assets = {
 	},
 	board: null
 };
-//eslint-disable-next-line no-unused-vars
-const gui = new GUI();
-//eslint-disable-next-line no-unused-vars
-const controls = new OrbitControls(camera, renderer.domElement);
-loader.load("../die.glb", (gltf) => {
+loader.load("../resources/models/die.glb", (gltf) => {
 	Dice.init();
 	const dieMesh = gltf.scene.getObjectByName("Box001_Material_#25_0");
 	dieMesh.geometry.center();
 	scene.add(Dice.createDie(dieMesh).getMesh());
 	scene.add(Dice.createDie().getMesh());
 });
-loader.load("../board.glb", (gltf) => {
+loader.load("../resources/models/board.glb", (gltf) => {
 	const names = ["Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0"];
 	const tokens = [];
-	console.log(gltf);
 	for (const name of names) {
 		const o = gltf.scene.getObjectByName(name);
 		o.geometry.rotateX(-Math.PI / 2);
@@ -73,7 +64,7 @@ loader.load("../board.glb", (gltf) => {
 	scene.add(Globals.houseMesh);
 });
 manager.onLoad = async function () {
-	const p = new Player(0, "Daniel", assets.tokens.iron);
+	// const p = new Player( 0, "Daniel", assets.tokens.iron );
 	// const h = new Player( 1, "Nate", assets.tokens.hat );
 	// for ( let i = 0; i < 5; i++ ) {
 	//     await p.moveForward( await Dice.rollDice( ) );
@@ -81,23 +72,6 @@ manager.onLoad = async function () {
 	//     await h.moveForward( await Dice.rollDice( ) );
 	//     await wait( 500 );
 	// }
-	// await p.moveForward( 7 );
-	// await wait(500);
-	// await h.moveForward(7);
-	p.money = Infinity;
-	for (const tile of Globals.tiles) {
-		if (tile instanceof Property) {
-			tile.owner = p;
-			tile.addHouse();
-			await wait(125);
-			tile.addHouse();
-			await wait(125);
-			tile.addHouse();
-			await wait(125);
-			tile.addHouse();
-			await wait(125);
-		}
-	}
 };
 const hdrLoader = new RGBELoader();
 hdrLoader.load("https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function (texture) {
@@ -110,8 +84,8 @@ function animate() {
 	requestAnimationFrame(animate);
 }
 animate();
-function wait(ms) {
-	return new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
-}
+// function wait( ms: number ) {
+//     return new Promise( ( resolve ) => {
+//         setTimeout( resolve, ms );
+//     } )
+// }
