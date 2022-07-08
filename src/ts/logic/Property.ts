@@ -4,10 +4,10 @@ import {
     Tween
 } from "../../libs/tween";
 import {
-    A_BUTTON,
-    B_BUTTON,
-    X_BUTTON
-} from "./Buttons";
+    O_BUTTON,
+    X_BUTTON,
+    TRIANGLE_BUTTON
+} from "./PS4Buttons";
 import {
     Globals
 } from "./Globals";
@@ -23,7 +23,7 @@ const properties = [
     "Vermont Avenue", "Connecticut Avenue", "St. Charles Place", "Electric Company",
     "States Avenue", "Virginia Avenue", "Pennsylvania Railroad", "St. James Place",
     "Tennessee Avenue", "New York Avenue", "Kentucky Avenue", "Indiana Avenue",
-    "Illinois Avenue", "B. & O. Railroad", "Atlantic Avenue","Vetnor Avenue", 
+    "Illinois Avenue", "B. & O. Railroad", "Atlantic Avenue", "Vetnor Avenue",
     "Water Works", "Marvins Gardens", "Pacific Avenue", "North Carolina Avenue",
     "Pennsylvania Avenue", "Short Line", "Park Place", "Boardwalk"
 ];
@@ -71,8 +71,8 @@ export class Property implements Tile {
         const scope = this;
         if ( !this.owner ) {
             if ( player.money >= this.table.cost ) {
-                player.awaitButtonPress( [ B_BUTTON, A_BUTTON ] ).then( button => {
-                    if ( button == A_BUTTON ) {
+                player.awaitButtonPress( [ X_BUTTON, O_BUTTON ] ).then( button => {
+                    if ( button == O_BUTTON ) {
                         player.money -= scope.table.cost;
                         scope.owner = player;
                         player.properties.push( scope );
@@ -82,11 +82,16 @@ export class Property implements Tile {
             }
         } else if ( this.owner !== player ) {
             if ( this.owner.inJail || this.mortgaged ) return;
-            this.owner.awaitButtonPressFor( [ X_BUTTON ], 20000 ).then( ( ) => {
+            this.owner.awaitButtonPressFor( [ TRIANGLE_BUTTON ], 20000 ).then( ( ) => {
                 player.money -= scope.table.rents[ scope.numHouses ];
                 scope.owner.money += scope.table.rents[ scope.numHouses ];
             } ).catch( ( ) => {
-                console.log( scope.owner.name + " Forgot to collect on their rent" );
+                const rentElem = document.getElementById( "noRent" ) as HTMLSpanElement;
+                rentElem.innerHTML = scope.owner.name + " Forgot to collect on their rent";
+                rentElem.style.display = "inline";
+                setTimeout( ( ) => {
+                    rentElem.style.display = "none";
+                }, 10000 )
             } );
         }
     }
@@ -104,16 +109,16 @@ export class Property implements Tile {
         }
     }
 
-    toggleMortgage(): void {
-        if(this.mortgaged){
-            this.unmortgage();
-        }else{
-            this.mortgage();
+    toggleMortgage( ): void {
+        if ( this.mortgaged ) {
+            this.unmortgage( );
+        } else {
+            this.mortgage( );
         }
     }
 
-    getPropertyName() {
-        return properties[this.instanceId / 4];
+    getPropertyName( ) {
+        return properties[ this.instanceId / 4 ];
     }
 
     addHouse( ): Promise < void > {

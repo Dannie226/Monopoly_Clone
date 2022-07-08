@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Easing, Tween } from "../../libs/tween";
+import { O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON } from "./PS4Buttons";
 import { Globals } from "./Globals";
 const tilePositions = [
     0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
@@ -27,6 +28,8 @@ export class Player {
         this.communityChestCard = null;
         this.currentPos = 0;
         this.statsPanel = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        this.header = document.createElementNS("http://www.w3.org/1999/xhtml", "h1");
+        this.body = document.createElementNS("http://www.w3.org/1999/xhtml", "p");
         this.gamepadId = id;
         this.name = name;
         this.statsPanel.className = "stats";
@@ -34,6 +37,11 @@ export class Player {
         curve.getPointAt(0, this.token.position);
         curve.getPointAt(0.01, v0);
         this.token.lookAt(v0);
+        this.statsPanel.appendChild(this.header);
+        this.statsPanel.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "hr"));
+        this.statsPanel.appendChild(this.body);
+        this.hideStats();
+        document.body.appendChild(this.statsPanel);
     }
     getGamepad() {
         return navigator.getGamepads()[this.gamepadId];
@@ -72,11 +80,101 @@ export class Player {
         });
         return p;
     }
+    async baseStats() {
+        const scope = this;
+        scope.header.innerHTML = this.name;
+        scope.body.innerText = `Money: ${this.money}
+Num Properties: ${this.properties.length}
+Properties > A
+Close > Y`;
+        const button = await scope.awaitButtonPress([O_BUTTON, SQUARE_BUTTON]);
+        if (button == O_BUTTON) {
+            await scope.propertyStats();
+        }
+        else {
+            scope.hideStats();
+        }
+    }
+    async propertyStats() {
+        let propertyId = 0;
+        const scope = this;
+        function nextProperty() {
+            propertyId++;
+            showProperty();
+        }
+        function previousProperty() {
+            propertyId--;
+            showProperty();
+        }
+        function showProperty() {
+            propertyId = THREE.MathUtils.euclideanModulo(propertyId, scope.properties.length);
+            scope.body.innerHTML = scope.properties[propertyId].getPropertyName() + " > A\nBack > Y";
+        }
+        async function onButtonPress() {
+            const button = await scope.awaitButtonPress([O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON]);
+            if (button == O_BUTTON) {
+                await scope.propertyFunctions(propertyId);
+                return;
+            }
+            else if (button == SQUARE_BUTTON) {
+                scope.baseStats();
+                return;
+            }
+            else if (button == TRIANGLE_BUTTON) {
+                previousProperty();
+            }
+            else if (button == X_BUTTON) {
+                nextProperty();
+            }
+            onButtonPress();
+        }
+        scope.header.innerHTML = "Properties";
+        onButtonPress();
+    }
+    propertyFunctions(id) {
+        const prop = this.properties[id], scope = this;
+        return new Promise((resolve) => {
+            this.header.innerHTML = prop.getPropertyName();
+            this.body.innerText = `Add House > A
+    Remove House > B
+    ${prop.mortgaged ? "Unmortgage" : "Mortgage"} Property > X
+    Back > Y`;
+            async function onButtonPress() {
+                const button = await scope.awaitButtonPress([O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON]);
+                if (button == O_BUTTON) {
+                    prop.addHouse();
+                }
+                else if (button == X_BUTTON) {
+                    prop.removeHouse();
+                }
+                else if (button == TRIANGLE_BUTTON) {
+                    prop.toggleMortgage();
+                }
+                else {
+                    scope.propertyStats();
+                    resolve();
+                    return;
+                }
+                new Promise((resolve) => {
+                    setTimeout(resolve, 500);
+                }).then(() => {
+                    onButtonPress();
+                });
+            }
+            onButtonPress();
+        });
+    }
     updateStats() {
+        if (this.money < 0) {
+            Globals.players.splice(Globals.players.indexOf(this), 1);
+        }
     }
     hideStats() {
+        this.statsPanel.style.display = "none";
     }
-    showStats() {
+    async showStats() {
+        this.statsPanel.style.display = "block";
+        await this.baseStats();
     }
     goToPosition(position) {
         const currentT = tilePositions[this.currentPos];

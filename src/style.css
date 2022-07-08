@@ -1,0 +1,73 @@
+body {
+    margin:0px;
+    overflow-y: hidden;
+}
+
+.numButton {
+    width:25px;
+    height:25px;
+    font-size: 20px;
+    margin:5px;
+    border:2px solid rgba(0, 0, 0, 0);
+}
+
+#screens > * {
+    display:none;
+}
+
+#screens > *:not(#game){
+    margin:8px;
+}
+
+.numButton:hover {
+    border:2px solid black;
+}
+
+.cover {
+    background-color: "black";
+    position: absolute;
+    top: 50%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+}
+
+.card {
+    padding: 5px;
+    font-size: 25px;
+    position: absolute;
+    background-color: white;
+    left: 50%;
+    display: none;
+}
+
+.stats {
+    position: absolute;
+    bottom: 150px;
+    background-color: white;
+    width: 100px;
+    height: 140px;
+}
+
+.tokenImage {
+    width:128;
+    border-radius: 10px;
+    border:2px solid rgba(0, 0, 0, 0);
+}
+
+.tokenImage:hover{
+    border:2px solid black;
+}
+
+#noRent {
+    display:none;
+    color:gold;
+    font-size: 24px;
+    align-items: center;
+    -webkit-text-stroke: 2px black;
+    position:absolute;
+    transform:translate(-50%, 0%);
+    left:50%;
+    top:20px;
+}

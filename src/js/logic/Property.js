@@ -1,7 +1,17 @@
 import * as THREE from "three";
 import { Easing, Tween } from "../../libs/tween";
-import { A_BUTTON, B_BUTTON, X_BUTTON } from "./Buttons";
+import { O_BUTTON, X_BUTTON, TRIANGLE_BUTTON } from "./PS4Buttons";
 import { Globals } from "./Globals";
+const properties = [
+    "Mediterranean Avenue", "Baltic Avenue", "Reading Railroad", "Oriental Avenue",
+    "Vermont Avenue", "Connecticut Avenue", "St. Charles Place", "Electric Company",
+    "States Avenue", "Virginia Avenue", "Pennsylvania Railroad", "St. James Place",
+    "Tennessee Avenue", "New York Avenue", "Kentucky Avenue", "Indiana Avenue",
+    "Illinois Avenue", "B. & O. Railroad", "Atlantic Avenue", "Vetnor Avenue",
+    "Water Works", "Marvins Gardens", "Pacific Avenue", "North Carolina Avenue",
+    "Pennsylvania Avenue", "Short Line", "Park Place", "Boardwalk"
+];
+properties.length;
 export class Property {
     constructor(cost, rent, houseCost, houseRents, axis, value, direction) {
         this.numHouses = 0;
@@ -25,8 +35,8 @@ export class Property {
         const scope = this;
         if (!this.owner) {
             if (player.money >= this.table.cost) {
-                player.awaitButtonPress([B_BUTTON, A_BUTTON]).then(button => {
-                    if (button == A_BUTTON) {
+                player.awaitButtonPress([X_BUTTON, O_BUTTON]).then(button => {
+                    if (button == O_BUTTON) {
                         player.money -= scope.table.cost;
                         scope.owner = player;
                         player.properties.push(scope);
@@ -38,11 +48,16 @@ export class Property {
         else if (this.owner !== player) {
             if (this.owner.inJail || this.mortgaged)
                 return;
-            this.owner.awaitButtonPressFor([X_BUTTON], 20000).then(() => {
+            this.owner.awaitButtonPressFor([TRIANGLE_BUTTON], 20000).then(() => {
                 player.money -= scope.table.rents[scope.numHouses];
                 scope.owner.money += scope.table.rents[scope.numHouses];
             }).catch(() => {
-                console.log(scope.owner.name + " Forgot to collect on their rent");
+                const rentElem = document.getElementById("noRent");
+                rentElem.innerHTML = scope.owner.name + " Forgot to collect on their rent";
+                rentElem.style.display = "inline";
+                setTimeout(() => {
+                    rentElem.style.display = "none";
+                }, 10000);
             });
         }
     }
@@ -56,6 +71,17 @@ export class Property {
             this.owner.money -= unmortgageCost;
             this.mortgaged = false;
         }
+    }
+    toggleMortgage() {
+        if (this.mortgaged) {
+            this.unmortgage();
+        }
+        else {
+            this.mortgage();
+        }
+    }
+    getPropertyName() {
+        return properties[this.instanceId / 4];
     }
     addHouse() {
         const scope = this;

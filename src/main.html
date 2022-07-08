@@ -2,9 +2,50 @@
 <html>
     <head>
         <title>Monopoly</title>
+        <link rel="stylesheet" href="./style.css">
     <head>
-    <body style="margin:0px;overflow-y: hidden;">
+    <body>
+        <div id="screens">
+            <div id="playerCount">
+                <h1>Choose the Number of Players</h1>
+                <hr>
+                <button class="numButton">2</button>
+                <button class="numButton">3</button>
+                <button class="numButton">4</button>
+            </div>
 
+            <div id="names">
+                <h1>Please Input the Names</h1>
+                <hr>
+                <input id="nameInput">
+                <br>
+                <button id="submitName">submit</button>
+            </div>
+
+            <div id="gamepads">
+                <h1>Please Connect the Controllers</h1>
+                <hr>
+                <p id="connectTag"></p>
+            </div>
+
+            <div id="tokens">
+                <img src="../resources/images/hat.png" alt="hat" class="tokenImage">
+                <img src="../resources/images/iron.png" alt="iron" class="tokenImage">
+                <br>
+                <img src="../resources/images/thimble.png" alt="thimble" class="tokenImage">
+                <img src="../resources/images/barrow.png" alt="barrow" class="tokenImage">
+            </div>
+
+            <div id="buttonTesting">
+                <h1>Button Testing</h1>
+                <hr>
+                <p id="buttonTag"></p>
+            </div>
+
+            <div id="game">
+                <span id="noRent"></span>
+            </div>
+        </div>
     <body>
     <script src="../dist/bundle.min.js"></script>
 <html>

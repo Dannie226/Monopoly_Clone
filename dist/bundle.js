@@ -30779,6 +30779,671 @@
 
     }
 
+    /**
+     * Extensible curve object.
+     *
+     * Some common of curve methods:
+     * .getPoint( t, optionalTarget ), .getTangent( t, optionalTarget )
+     * .getPointAt( u, optionalTarget ), .getTangentAt( u, optionalTarget )
+     * .getPoints(), .getSpacedPoints()
+     * .getLength()
+     * .updateArcLengths()
+     *
+     * This following curves inherit from THREE.Curve:
+     *
+     * -- 2D curves --
+     * THREE.ArcCurve
+     * THREE.CubicBezierCurve
+     * THREE.EllipseCurve
+     * THREE.LineCurve
+     * THREE.QuadraticBezierCurve
+     * THREE.SplineCurve
+     *
+     * -- 3D curves --
+     * THREE.CatmullRomCurve3
+     * THREE.CubicBezierCurve3
+     * THREE.LineCurve3
+     * THREE.QuadraticBezierCurve3
+     *
+     * A series of curves can be represented as a THREE.CurvePath.
+     *
+     **/
+
+    class Curve {
+
+        constructor( ) {
+
+            this.type = 'Curve';
+
+            this.arcLengthDivisions = 200;
+
+        }
+
+        // Virtual base class method to overwrite and implement in subclasses
+        //	- t [0 .. 1]
+
+        getPoint( /* t, optionalTarget */ ) {
+
+            console.warn( 'THREE.Curve: .getPoint() not implemented.' );
+            return null;
+
+        }
+
+        // Get point at relative position in curve according to arc length
+        // - u [0 .. 1]
+
+        getPointAt( u, optionalTarget ) {
+
+            const t = this.getUtoTmapping( u );
+            return this.getPoint( t, optionalTarget );
+
+        }
+
+        // Get sequence of points using getPoint( t )
+
+        getPoints( divisions = 5 ) {
+
+            const points = [ ];
+
+            for ( let d = 0; d <= divisions; d++ ) {
+
+                points.push( this.getPoint( d / divisions ) );
+
+            }
+
+            return points;
+
+        }
+
+        // Get sequence of points using getPointAt( u )
+
+        getSpacedPoints( divisions = 5 ) {
+
+            const points = [ ];
+
+            for ( let d = 0; d <= divisions; d++ ) {
+
+                points.push( this.getPointAt( d / divisions ) );
+
+            }
+
+            return points;
+
+        }
+
+        // Get total curve arc length
+
+        getLength( ) {
+
+            const lengths = this.getLengths( );
+            return lengths[ lengths.length - 1 ];
+
+        }
+
+        // Get list of cumulative segment lengths
+
+        getLengths( divisions = this.arcLengthDivisions ) {
+
+            if ( this.cacheArcLengths &&
+                ( this.cacheArcLengths.length === divisions + 1 ) &&
+                !this.needsUpdate ) {
+
+                return this.cacheArcLengths;
+
+            }
+
+            this.needsUpdate = false;
+
+            const cache = [ ];
+            let current, last = this.getPoint( 0 );
+            let sum = 0;
+
+            cache.push( 0 );
+
+            for ( let p = 1; p <= divisions; p++ ) {
+
+                current = this.getPoint( p / divisions );
+                sum += current.distanceTo( last );
+                cache.push( sum );
+                last = current;
+
+            }
+
+            this.cacheArcLengths = cache;
+
+            return cache; // { sums: cache, sum: sum }; Sum is in the last element.
+
+        }
+
+        updateArcLengths( ) {
+
+            this.needsUpdate = true;
+            this.getLengths( );
+
+        }
+
+        // Given u ( 0 .. 1 ), get a t to find p. This gives you points which are equidistant
+
+        getUtoTmapping( u, distance ) {
+
+            const arcLengths = this.getLengths( );
+
+            let i = 0;
+            const il = arcLengths.length;
+
+            let targetArcLength; // The targeted u distance value to get
+
+            if ( distance ) {
+
+                targetArcLength = distance;
+
+            } else {
+
+                targetArcLength = u * arcLengths[ il - 1 ];
+
+            }
+
+            // binary search for the index with largest value smaller than target u distance
+
+            let low = 0,
+                high = il - 1,
+                comparison;
+
+            while ( low <= high ) {
+
+                i = Math.floor( low + ( high - low ) / 2 ); // less likely to overflow, though probably not issue here, JS doesn't really have integers, all numbers are floats
+
+                comparison = arcLengths[ i ] - targetArcLength;
+
+                if ( comparison < 0 ) {
+
+                    low = i + 1;
+
+                } else if ( comparison > 0 ) {
+
+                    high = i - 1;
+
+                } else {
+
+                    high = i;
+                    break;
+
+                    // DONE
+
+                }
+
+            }
+
+            i = high;
+
+            if ( arcLengths[ i ] === targetArcLength ) {
+
+                return i / ( il - 1 );
+
+            }
+
+            // we could get finer grain at lengths, or use simple interpolation between two points
+
+            const lengthBefore = arcLengths[ i ];
+            const lengthAfter = arcLengths[ i + 1 ];
+
+            const segmentLength = lengthAfter - lengthBefore;
+
+            // determine where we are between the 'before' and 'after' points
+
+            const segmentFraction = ( targetArcLength - lengthBefore ) / segmentLength;
+
+            // add that fractional amount to t
+
+            const t = ( i + segmentFraction ) / ( il - 1 );
+
+            return t;
+
+        }
+
+        // Returns a unit vector tangent at t
+        // In case any sub curve does not implement its tangent derivation,
+        // 2 points a small delta apart will be used to find its gradient
+        // which seems to give a reasonable approximation
+
+        getTangent( t, optionalTarget ) {
+
+            const delta = 0.0001;
+            let t1 = t - delta;
+            let t2 = t + delta;
+
+            // Capping in case of danger
+
+            if ( t1 < 0 ) t1 = 0;
+            if ( t2 > 1 ) t2 = 1;
+
+            const pt1 = this.getPoint( t1 );
+            const pt2 = this.getPoint( t2 );
+
+            const tangent = optionalTarget || ( ( pt1.isVector2 ) ? new Vector2( ) : new Vector3( ) );
+
+            tangent.copy( pt2 ).sub( pt1 ).normalize( );
+
+            return tangent;
+
+        }
+
+        getTangentAt( u, optionalTarget ) {
+
+            const t = this.getUtoTmapping( u );
+            return this.getTangent( t, optionalTarget );
+
+        }
+
+        computeFrenetFrames( segments, closed ) {
+
+            // see http://www.cs.indiana.edu/pub/techreports/TR425.pdf
+
+            const normal = new Vector3( );
+
+            const tangents = [ ];
+            const normals = [ ];
+            const binormals = [ ];
+
+            const vec = new Vector3( );
+            const mat = new Matrix4( );
+
+            // compute the tangent vectors for each segment on the curve
+
+            for ( let i = 0; i <= segments; i++ ) {
+
+                const u = i / segments;
+
+                tangents[ i ] = this.getTangentAt( u, new Vector3( ) );
+
+            }
+
+            // select an initial normal vector perpendicular to the first tangent vector,
+            // and in the direction of the minimum tangent xyz component
+
+            normals[ 0 ] = new Vector3( );
+            binormals[ 0 ] = new Vector3( );
+            let min = Number.MAX_VALUE;
+            const tx = Math.abs( tangents[ 0 ].x );
+            const ty = Math.abs( tangents[ 0 ].y );
+            const tz = Math.abs( tangents[ 0 ].z );
+
+            if ( tx <= min ) {
+
+                min = tx;
+                normal.set( 1, 0, 0 );
+
+            }
+
+            if ( ty <= min ) {
+
+                min = ty;
+                normal.set( 0, 1, 0 );
+
+            }
+
+            if ( tz <= min ) {
+
+                normal.set( 0, 0, 1 );
+
+            }
+
+            vec.crossVectors( tangents[ 0 ], normal ).normalize( );
+
+            normals[ 0 ].crossVectors( tangents[ 0 ], vec );
+            binormals[ 0 ].crossVectors( tangents[ 0 ], normals[ 0 ] );
+
+
+            // compute the slowly-varying normal and binormal vectors for each segment on the curve
+
+            for ( let i = 1; i <= segments; i++ ) {
+
+                normals[ i ] = normals[ i - 1 ].clone( );
+
+                binormals[ i ] = binormals[ i - 1 ].clone( );
+
+                vec.crossVectors( tangents[ i - 1 ], tangents[ i ] );
+
+                if ( vec.length( ) > Number.EPSILON ) {
+
+                    vec.normalize( );
+
+                    const theta = Math.acos( clamp( tangents[ i - 1 ].dot( tangents[ i ] ), -1, 1 ) ); // clamp for floating pt errors
+
+                    normals[ i ].applyMatrix4( mat.makeRotationAxis( vec, theta ) );
+
+                }
+
+                binormals[ i ].crossVectors( tangents[ i ], normals[ i ] );
+
+            }
+
+            // if the curve is closed, postprocess the vectors so the first and last normal vectors are the same
+
+            if ( closed === true ) {
+
+                let theta = Math.acos( clamp( normals[ 0 ].dot( normals[ segments ] ), -1, 1 ) );
+                theta /= segments;
+
+                if ( tangents[ 0 ].dot( vec.crossVectors( normals[ 0 ], normals[ segments ] ) ) > 0 ) {
+
+                    theta = -theta;
+
+                }
+
+                for ( let i = 1; i <= segments; i++ ) {
+
+                    // twist a little...
+                    normals[ i ].applyMatrix4( mat.makeRotationAxis( tangents[ i ], theta * i ) );
+                    binormals[ i ].crossVectors( tangents[ i ], normals[ i ] );
+
+                }
+
+            }
+
+            return {
+                tangents: tangents,
+                normals: normals,
+                binormals: binormals
+            };
+
+        }
+
+        clone( ) {
+
+            return new this.constructor( ).copy( this );
+
+        }
+
+        copy( source ) {
+
+            this.arcLengthDivisions = source.arcLengthDivisions;
+
+            return this;
+
+        }
+
+        toJSON( ) {
+
+            const data = {
+                metadata: {
+                    version: 4.5,
+                    type: 'Curve',
+                    generator: 'Curve.toJSON'
+                }
+            };
+
+            data.arcLengthDivisions = this.arcLengthDivisions;
+            data.type = this.type;
+
+            return data;
+
+        }
+
+        fromJSON( json ) {
+
+            this.arcLengthDivisions = json.arcLengthDivisions;
+
+            return this;
+
+        }
+
+    }
+
+    /**
+     * Centripetal CatmullRom Curve - which is useful for avoiding
+     * cusps and self-intersections in non-uniform catmull rom curves.
+     * http://www.cemyuksel.com/research/catmullrom_param/catmullrom.pdf
+     *
+     * curve.type accepts centripetal(default), chordal and catmullrom
+     * curve.tension is used for catmullrom which defaults to 0.5
+     */
+
+
+    /*
+    Based on an optimized c++ solution in
+     - http://stackoverflow.com/questions/9489736/catmull-rom-curve-with-no-cusps-and-no-self-intersections/
+     - http://ideone.com/NoEbVM
+
+    This CubicPoly class could be used for reusing some variables and calculations,
+    but for three.js curve use, it could be possible inlined and flatten into a single function call
+    which can be placed in CurveUtils.
+    */
+
+    function CubicPoly( ) {
+
+        let c0 = 0,
+            c1 = 0,
+            c2 = 0,
+            c3 = 0;
+
+        /*
+         * Compute coefficients for a cubic polynomial
+         *   p(s) = c0 + c1*s + c2*s^2 + c3*s^3
+         * such that
+         *   p(0) = x0, p(1) = x1
+         *  and
+         *   p'(0) = t0, p'(1) = t1.
+         */
+        function init( x0, x1, t0, t1 ) {
+
+            c0 = x0;
+            c1 = t0;
+            c2 = -3 * x0 + 3 * x1 - 2 * t0 - t1;
+            c3 = 2 * x0 - 2 * x1 + t0 + t1;
+
+        }
+
+        return {
+
+            initCatmullRom: function( x0, x1, x2, x3, tension ) {
+
+                init( x1, x2, tension * ( x2 - x0 ), tension * ( x3 - x1 ) );
+
+            },
+
+            initNonuniformCatmullRom: function( x0, x1, x2, x3, dt0, dt1, dt2 ) {
+
+                // compute tangents when parameterized in [t1,t2]
+                let t1 = ( x1 - x0 ) / dt0 - ( x2 - x0 ) / ( dt0 + dt1 ) + ( x2 - x1 ) / dt1;
+                let t2 = ( x2 - x1 ) / dt1 - ( x3 - x1 ) / ( dt1 + dt2 ) + ( x3 - x2 ) / dt2;
+
+                // rescale tangents for parametrization in [0,1]
+                t1 *= dt1;
+                t2 *= dt1;
+
+                init( x1, x2, t1, t2 );
+
+            },
+
+            calc: function( t ) {
+
+                const t2 = t * t;
+                const t3 = t2 * t;
+                return c0 + c1 * t + c2 * t2 + c3 * t3;
+
+            }
+
+        };
+
+    }
+
+    //
+
+    const tmp$2 = /*@__PURE__*/ new Vector3( );
+    const px = /*@__PURE__*/ new CubicPoly( );
+    const py = /*@__PURE__*/ new CubicPoly( );
+    const pz = /*@__PURE__*/ new CubicPoly( );
+
+    class CatmullRomCurve3 extends Curve {
+
+        constructor( points = [ ], closed = false, curveType = 'centripetal', tension = 0.5 ) {
+
+            super( );
+
+            this.isCatmullRomCurve3 = true;
+
+            this.type = 'CatmullRomCurve3';
+
+            this.points = points;
+            this.closed = closed;
+            this.curveType = curveType;
+            this.tension = tension;
+
+        }
+
+        getPoint( t, optionalTarget = new Vector3( ) ) {
+
+            const point = optionalTarget;
+
+            const points = this.points;
+            const l = points.length;
+
+            const p = ( l - ( this.closed ? 0 : 1 ) ) * t;
+            let intPoint = Math.floor( p );
+            let weight = p - intPoint;
+
+            if ( this.closed ) {
+
+                intPoint += intPoint > 0 ? 0 : ( Math.floor( Math.abs( intPoint ) / l ) + 1 ) * l;
+
+            } else if ( weight === 0 && intPoint === l - 1 ) {
+
+                intPoint = l - 2;
+                weight = 1;
+
+            }
+
+            let p0, p3; // 4 points (p1 & p2 defined below)
+
+            if ( this.closed || intPoint > 0 ) {
+
+                p0 = points[ ( intPoint - 1 ) % l ];
+
+            } else {
+
+                // extrapolate first point
+                tmp$2.subVectors( points[ 0 ], points[ 1 ] ).add( points[ 0 ] );
+                p0 = tmp$2;
+
+            }
+
+            const p1 = points[ intPoint % l ];
+            const p2 = points[ ( intPoint + 1 ) % l ];
+
+            if ( this.closed || intPoint + 2 < l ) {
+
+                p3 = points[ ( intPoint + 2 ) % l ];
+
+            } else {
+
+                // extrapolate last point
+                tmp$2.subVectors( points[ l - 1 ], points[ l - 2 ] ).add( points[ l - 1 ] );
+                p3 = tmp$2;
+
+            }
+
+            if ( this.curveType === 'centripetal' || this.curveType === 'chordal' ) {
+
+                // init Centripetal / Chordal Catmull-Rom
+                const pow = this.curveType === 'chordal' ? 0.5 : 0.25;
+                let dt0 = Math.pow( p0.distanceToSquared( p1 ), pow );
+                let dt1 = Math.pow( p1.distanceToSquared( p2 ), pow );
+                let dt2 = Math.pow( p2.distanceToSquared( p3 ), pow );
+
+                // safety check for repeated points
+                if ( dt1 < 1e-4 ) dt1 = 1.0;
+                if ( dt0 < 1e-4 ) dt0 = dt1;
+                if ( dt2 < 1e-4 ) dt2 = dt1;
+
+                px.initNonuniformCatmullRom( p0.x, p1.x, p2.x, p3.x, dt0, dt1, dt2 );
+                py.initNonuniformCatmullRom( p0.y, p1.y, p2.y, p3.y, dt0, dt1, dt2 );
+                pz.initNonuniformCatmullRom( p0.z, p1.z, p2.z, p3.z, dt0, dt1, dt2 );
+
+            } else if ( this.curveType === 'catmullrom' ) {
+
+                px.initCatmullRom( p0.x, p1.x, p2.x, p3.x, this.tension );
+                py.initCatmullRom( p0.y, p1.y, p2.y, p3.y, this.tension );
+                pz.initCatmullRom( p0.z, p1.z, p2.z, p3.z, this.tension );
+
+            }
+
+            point.set(
+                px.calc( weight ),
+                py.calc( weight ),
+                pz.calc( weight )
+            );
+
+            return point;
+
+        }
+
+        copy( source ) {
+
+            super.copy( source );
+
+            this.points = [ ];
+
+            for ( let i = 0, l = source.points.length; i < l; i++ ) {
+
+                const point = source.points[ i ];
+
+                this.points.push( point.clone( ) );
+
+            }
+
+            this.closed = source.closed;
+            this.curveType = source.curveType;
+            this.tension = source.tension;
+
+            return this;
+
+        }
+
+        toJSON( ) {
+
+            const data = super.toJSON( );
+
+            data.points = [ ];
+
+            for ( let i = 0, l = this.points.length; i < l; i++ ) {
+
+                const point = this.points[ i ];
+                data.points.push( point.toArray( ) );
+
+            }
+
+            data.closed = this.closed;
+            data.curveType = this.curveType;
+            data.tension = this.tension;
+
+            return data;
+
+        }
+
+        fromJSON( json ) {
+
+            super.fromJSON( json );
+
+            this.points = [ ];
+
+            for ( let i = 0, l = json.points.length; i < l; i++ ) {
+
+                const point = json.points[ i ];
+                this.points.push( new Vector3( ).fromArray( point ) );
+
+            }
+
+            this.closed = json.closed;
+            this.curveType = json.curveType;
+            this.tension = json.tension;
+
+            return this;
+
+        }
+
+    }
+
     class MeshStandardMaterial extends Material$1 {
 
         constructor( parameters ) {
@@ -41059,18 +41724,18 @@
     TWEEN.remove.bind( TWEEN );
     var update = TWEEN.update.bind( TWEEN );
 
+    const X_BUTTON = 0;
+    const O_BUTTON = 1;
+    const SQUARE_BUTTON = 2;
+    const TRIANGLE_BUTTON = 3;
+
     class Card {
         constructor( ) {
             throw "Cannot construct a card";
         }
         static initDOM( ) {
             document.body.appendChild( this.card );
-            this.card.style.padding = "5px";
-            this.card.style.fontSize = "25px";
-            this.card.style.position = "absolute";
-            this.card.style.backgroundColor = "white";
-            this.card.style.left = "50%";
-            this.card.style.display = "none";
+            this.card.className = "card";
             this.added = true;
         }
     }
@@ -41419,10 +42084,15 @@
         }
     }
 
-    const B_BUTTON = 0;
-    const A_BUTTON = 1;
-    const X_BUTTON = 3;
-
+    const properties = [
+        "Mediterranean Avenue", "Baltic Avenue", "Reading Railroad", "Oriental Avenue",
+        "Vermont Avenue", "Connecticut Avenue", "St. Charles Place", "Electric Company",
+        "States Avenue", "Virginia Avenue", "Pennsylvania Railroad", "St. James Place",
+        "Tennessee Avenue", "New York Avenue", "Kentucky Avenue", "Indiana Avenue",
+        "Illinois Avenue", "B. & O. Railroad", "Atlantic Avenue", "Vetnor Avenue",
+        "Water Works", "Marvins Gardens", "Pacific Avenue", "North Carolina Avenue",
+        "Pennsylvania Avenue", "Short Line", "Park Place", "Boardwalk"
+    ];
     class Property {
         constructor( cost, rent, houseCost, houseRents, axis, value, direction ) {
             this.numHouses = 0;
@@ -41446,8 +42116,8 @@
             const scope = this;
             if ( !this.owner ) {
                 if ( player.money >= this.table.cost ) {
-                    player.awaitButtonPress( [ B_BUTTON, A_BUTTON ] ).then( button => {
-                        if ( button == A_BUTTON ) {
+                    player.awaitButtonPress( [ X_BUTTON, O_BUTTON ] ).then( button => {
+                        if ( button == O_BUTTON ) {
                             player.money -= scope.table.cost;
                             scope.owner = player;
                             player.properties.push( scope );
@@ -41458,11 +42128,16 @@
             } else if ( this.owner !== player ) {
                 if ( this.owner.inJail || this.mortgaged )
                     return;
-                this.owner.awaitButtonPressFor( [ X_BUTTON ], 20000 ).then( ( ) => {
+                this.owner.awaitButtonPressFor( [ TRIANGLE_BUTTON ], 20000 ).then( ( ) => {
                     player.money -= scope.table.rents[ scope.numHouses ];
                     scope.owner.money += scope.table.rents[ scope.numHouses ];
                 } ).catch( ( ) => {
-                    console.log( scope.owner.name + " Forgot to collect on their rent" );
+                    const rentElem = document.getElementById( "noRent" );
+                    rentElem.innerHTML = scope.owner.name + " Forgot to collect on their rent";
+                    rentElem.style.display = "inline";
+                    setTimeout( ( ) => {
+                        rentElem.style.display = "none";
+                    }, 10000 );
                 } );
             }
         }
@@ -41476,6 +42151,16 @@
                 this.owner.money -= unmortgageCost;
                 this.mortgaged = false;
             }
+        }
+        toggleMortgage( ) {
+            if ( this.mortgaged ) {
+                this.unmortgage( );
+            } else {
+                this.mortgage( );
+            }
+        }
+        getPropertyName( ) {
+            return properties[ this.instanceId / 4 ];
         }
         addHouse( ) {
             const scope = this;
@@ -41650,6 +42335,273 @@
     Globals.toIObj = {
         a: 1
     };
+
+    const tilePositions = [
+        0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
+        .5000, .5333, .5570, .5815, .6047, .6290, .6520, .6765, .7000, .7240, .7540, .7820, .8065, .8310, .8550, .8795, .9030, .9265, .9505, .9750
+    ];
+    const curve = new CatmullRomCurve3( [
+        new Vector3( 625, 0, 600 ),
+        new Vector3( 600, 0, 625 ),
+        new Vector3( -600, 0, 625 ),
+        new Vector3( -625, 0, 600 ),
+        new Vector3( -625, 0, -600 ),
+        new Vector3( -600, 0, -625 ),
+        new Vector3( 600, 0, -625 ),
+        new Vector3( 625, 0, -600 )
+    ], true );
+    const v0$1 = new Vector3( );
+    class Player {
+        constructor( id, name, token ) {
+            this.money = 1500;
+            this.propertyCount = 0;
+            this.properties = [ ];
+            this.inJail = false;
+            this.jailTurns = 0;
+            this.chanceCard = null;
+            this.communityChestCard = null;
+            this.currentPos = 0;
+            this.statsPanel = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" );
+            this.header = document.createElementNS( "http://www.w3.org/1999/xhtml", "h1" );
+            this.body = document.createElementNS( "http://www.w3.org/1999/xhtml", "p" );
+            this.gamepadId = id;
+            this.name = name;
+            this.statsPanel.className = "stats";
+            this.token = token;
+            curve.getPointAt( 0, this.token.position );
+            curve.getPointAt( 0.01, v0$1 );
+            this.token.lookAt( v0$1 );
+            this.statsPanel.appendChild( this.header );
+            this.statsPanel.appendChild( document.createElementNS( "http://www.w3.org/1999/xhtml", "hr" ) );
+            this.statsPanel.appendChild( this.body );
+            this.hideStats( );
+            document.body.appendChild( this.statsPanel );
+        }
+        getGamepad( ) {
+            return navigator.getGamepads( )[ this.gamepadId ];
+        }
+        awaitButtonPress( allowedButtons ) {
+            const scope = this;
+            const p = new Promise( ( resolve, reject ) => {
+                const i = setInterval( ( ) => {
+                    for ( const button of allowedButtons ) {
+                        if ( scope.getGamepad( ).buttons[ button ].pressed ) {
+                            clearInterval( i );
+                            resolve( button );
+                        }
+                    }
+                }, 17 );
+            } );
+            return p;
+        }
+        awaitButtonPressFor( allowedButtons, timeoutMs ) {
+            const scope = this;
+            const p = new Promise( ( resolve, reject ) => {
+                const i = setInterval( ( ) => {
+                    for ( const button of allowedButtons ) {
+                        if ( scope.getGamepad( ).buttons[ button ].pressed ) {
+                            clearInterval( i );
+                            clearTimeout( t );
+                            resolve( button );
+                        }
+                    }
+                }, 17 );
+                const t = setTimeout( ( ) => {
+                    clearInterval( i );
+                    clearTimeout( t );
+                    reject( "Took Too long to press button" );
+                }, timeoutMs );
+            } );
+            return p;
+        }
+        async baseStats( ) {
+            const scope = this;
+            scope.header.innerHTML = this.name;
+            scope.body.innerText = `Money: ${this.money}
+Num Properties: ${this.properties.length}
+Properties > A
+Close > Y`;
+            const button = await scope.awaitButtonPress( [ O_BUTTON, SQUARE_BUTTON ] );
+            if ( button == O_BUTTON ) {
+                await scope.propertyStats( );
+            } else {
+                scope.hideStats( );
+            }
+        }
+        async propertyStats( ) {
+            let propertyId = 0;
+            const scope = this;
+
+            function nextProperty( ) {
+                propertyId++;
+                showProperty( );
+            }
+
+            function previousProperty( ) {
+                propertyId--;
+                showProperty( );
+            }
+
+            function showProperty( ) {
+                propertyId = MathUtils.euclideanModulo( propertyId, scope.properties.length );
+                scope.body.innerHTML = scope.properties[ propertyId ].getPropertyName( ) + " > A\nBack > Y";
+            }
+            async function onButtonPress( ) {
+                const button = await scope.awaitButtonPress( [ O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON ] );
+                if ( button == O_BUTTON ) {
+                    await scope.propertyFunctions( propertyId );
+                    return;
+                } else if ( button == SQUARE_BUTTON ) {
+                    scope.baseStats( );
+                    return;
+                } else if ( button == TRIANGLE_BUTTON ) {
+                    previousProperty( );
+                } else if ( button == X_BUTTON ) {
+                    nextProperty( );
+                }
+                onButtonPress( );
+            }
+            scope.header.innerHTML = "Properties";
+            onButtonPress( );
+        }
+        propertyFunctions( id ) {
+            const prop = this.properties[ id ],
+                scope = this;
+            return new Promise( ( resolve ) => {
+                this.header.innerHTML = prop.getPropertyName( );
+                this.body.innerText = `Add House > A
+    Remove House > B
+    ${prop.mortgaged ? "Unmortgage" : "Mortgage"} Property > X
+    Back > Y`;
+                async function onButtonPress( ) {
+                    const button = await scope.awaitButtonPress( [ O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON ] );
+                    if ( button == O_BUTTON ) {
+                        prop.addHouse( );
+                    } else if ( button == X_BUTTON ) {
+                        prop.removeHouse( );
+                    } else if ( button == TRIANGLE_BUTTON ) {
+                        prop.toggleMortgage( );
+                    } else {
+                        scope.propertyStats( );
+                        resolve( );
+                        return;
+                    }
+                    new Promise( ( resolve ) => {
+                        setTimeout( resolve, 500 );
+                    } ).then( ( ) => {
+                        onButtonPress( );
+                    } );
+                }
+                onButtonPress( );
+            } );
+        }
+        updateStats( ) {
+            if ( this.money < 0 ) {
+                Globals.players.splice( Globals.players.indexOf( this ), 1 );
+            }
+        }
+        hideStats( ) {
+            this.statsPanel.style.display = "none";
+        }
+        async showStats( ) {
+            this.statsPanel.style.display = "block";
+            await this.baseStats( );
+        }
+        goToPosition( position ) {
+            const currentT = tilePositions[ this.currentPos ];
+            let intT = tilePositions[ position ];
+            const scope = this;
+            if ( intT < currentT ) {
+                intT++;
+                if ( !this.inJail )
+                    this.money += 200;
+            }
+            const {
+                camera,
+                v0,
+                v1,
+                q0,
+                q1,
+                fromIObj,
+                toIObj
+            } = Globals;
+            const p = new Promise( ( resolve ) => {
+                v1.set( 200, 100, 0 );
+                this.token.localToWorld( v1 );
+                v0.copy( camera.position );
+                camera.lookAt( 0, 0, 0 );
+                q0.copy( camera.quaternion );
+                camera.position.copy( v1 );
+                camera.lookAt( this.token.position );
+                q1.copy( camera.quaternion );
+                fromIObj.a = 0;
+                toIObj.a = 1;
+                const camToTokenTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                    a
+                } ) => {
+                    camera.position.lerpVectors( v0, v1, a );
+                    camera.quaternion.slerpQuaternions( q0, q1, a );
+                } ).onComplete( ( ) => {
+                    fromIObj.a = currentT;
+                    toIObj.a = intT;
+                    scope.token.add( camera );
+                    camera.position.set( 200, 100, 0 );
+                    camera.lookAt( scope.token.position );
+                    tokenToSpaceTween.start( );
+                } ).easing( Easing.Quadratic.InOut );
+                const tokenToSpaceTween = new Tween( fromIObj ).to( toIObj, Math.log2( Number( intT > 1 ) * 40 + position - scope.currentPos ) * 1500 ).onUpdate( ( {
+                    a
+                } ) => {
+                    curve.getPointAt( a % 1, scope.token.position );
+                    curve.getPointAt( ( a + 0.01 ) % 1, v0 );
+                    scope.token.lookAt( v0 );
+                } ).onComplete( ( ) => {
+                    scope.currentPos = position;
+                    scope.token.remove( camera );
+                    scope.token.localToWorld( camera.position );
+                    v0.copy( camera.position );
+                    camera.lookAt( scope.token.position );
+                    q0.copy( camera.quaternion );
+                    v1.set( 0, 975, 0 );
+                    q1.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
+                    fromIObj.a = 0;
+                    toIObj.a = 1;
+                    camToOrigTween.start( );
+                } ).delay( 500 ).easing( Easing.Sinusoidal.InOut );
+                const camToOrigTween = new Tween( fromIObj ).to( toIObj, 3000 ).onUpdate( ( {
+                    a
+                } ) => {
+                    camera.position.lerpVectors( v0, v1, a );
+                    camera.quaternion.slerpQuaternions( q0, q1, a );
+                } ).delay( 500 ).easing( Easing.Quadratic.InOut ).onComplete( async ( ) => {
+                    await Globals.tiles[ scope.currentPos ].onLand( scope );
+                    resolve( scope );
+                } );
+                camToTokenTween.start( );
+            } );
+            return p;
+        }
+        moveForward( spaces ) {
+            if ( this.inJail ) {
+                if ( spaces >= 11 ) {
+                    this.inJail = false;
+                } else if ( this.jailTurns == 5 ) {
+                    this.money -= 50;
+                    this.inJail = false;
+                } else {
+                    const scope = this;
+                    this.jailTurns++;
+                    return new Promise( ( resolve ) => {
+                        resolve( scope );
+                    } );
+                }
+            }
+            return this.goToPosition( MathUtils.euclideanModulo( this.currentPos + spaces, 40 ) );
+        }
+        moveBackward( spaces ) {
+            return this.goToPosition( MathUtils.euclideanModulo( this.currentPos - spaces, 40 ) );
+        }
+    }
 
     /**
      * Records what objects are colliding with each other
@@ -46379,9 +47331,9 @@
                 direction.scale( scalar, intersectPoint );
                 intersectPoint.vadd( from, intersectPoint ); // a is the point we compare points b and c with.
 
-                a.copy( vertices[ face[ 0 ] ] );
-                q.vmult( a, a );
-                x.vadd( a, a );
+                a$1.copy( vertices[ face[ 0 ] ] );
+                q.vmult( a$1, a$1 );
+                x.vadd( a$1, a$1 );
 
                 for ( let i = 1; !result.shouldStop && i < face.length - 1; i++ ) {
                     // Transform 3 vertices to world coords
@@ -46393,7 +47345,7 @@
                     x.vadd( c$1, c$1 );
                     const distance = intersectPoint.distanceTo( from );
 
-                    if ( !( Ray.pointInTriangle( intersectPoint, a, b$1, c$1 ) || Ray.pointInTriangle( intersectPoint, b$1, a, c$1 ) ) || distance > fromToDistance ) {
+                    if ( !( Ray.pointInTriangle( intersectPoint, a$1, b$1, c$1 ) || Ray.pointInTriangle( intersectPoint, b$1, a$1, c$1 ) ) || distance > fromToDistance ) {
                         continue;
                     }
 
@@ -46448,9 +47400,9 @@
                 // note: this works regardless of the direction of the face normal
                 // Get plane point in world coordinates...
 
-                mesh.getVertex( indices[ trianglesIndex * 3 ], a ); // ...but make it relative to the ray from. We'll fix this later.
+                mesh.getVertex( indices[ trianglesIndex * 3 ], a$1 ); // ...but make it relative to the ray from. We'll fix this later.
 
-                a.vsub( localFrom, vector ); // If this dot product is negative, we have something interesting
+                a$1.vsub( localFrom, vector ); // If this dot product is negative, we have something interesting
 
                 const dot = localDirection.dot( normal ); // Bail out if ray and plane are parallel
                 // if (Math.abs( dot ) < this.precision){
@@ -46472,7 +47424,7 @@
                 mesh.getVertex( indices[ trianglesIndex * 3 + 2 ], c$1 );
                 const squaredDistance = intersectPoint.distanceSquared( localFrom );
 
-                if ( !( Ray.pointInTriangle( intersectPoint, b$1, a, c$1 ) || Ray.pointInTriangle( intersectPoint, a, b$1, c$1 ) ) || squaredDistance > fromToDistanceSquared ) {
+                if ( !( Ray.pointInTriangle( intersectPoint, b$1, a$1, c$1 ) || Ray.pointInTriangle( intersectPoint, a$1, b$1, c$1 ) ) || squaredDistance > fromToDistanceSquared ) {
                     continue;
                 } // transform intersectpoint and normal to world
 
@@ -46559,7 +47511,7 @@
     const intersectBody_xi = new Vec3( );
     const intersectBody_qi = new Quaternion( );
     const intersectPoint = new Vec3( );
-    const a = new Vec3( );
+    const a$1 = new Vec3( );
     const b$1 = new Vec3( );
     const c$1 = new Vec3( );
     new Vec3( );
@@ -50412,36 +51364,172 @@
     Dice.clock = new Clock( );
 
     const {
-        innerWidth: r,
-        innerHeight: i
-    } = window, l = new WebGLRenderer, d = ( l.setSize( r, i ), l.setClearColor( 12571109 ), document.body.appendChild( l.domElement ), new Scene ), m = new PerspectiveCamera( 75, r / i, 100, 3e3 ), c = ( m.position.y = 1e3, m.position.x = 2e3, Globals.camera = m, new DirectionalLight ), h = ( d.add( c ), new PMREMGenerator( l ) ), _ = new LoadingManager, u = new GLTFLoader( _ ), b = {
-        tokens: {
-            hat: null,
-            iron: null,
-            barrow: null,
-            thimble: null
+        innerWidth: a,
+        innerHeight: r
+    } = window, y = {
+        async show( ) {},
+        async hide( ) {}
+    }; {
+        const M = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" ),
+            P = ( M.className = "cover", M.style.backgroundColor = "black", document.body.appendChild( M ), new KeyframeEffect( M, [ {
+                width: "100%",
+                height: "100%"
+            }, {
+                width: "0px",
+                height: "0px"
+            } ], {
+                duration: 1e3,
+                easing: "ease-out",
+                fill: "forwards"
+            } ) ),
+            I = new KeyframeEffect( M, [ {
+                width: "0px",
+                height: "0px"
+            }, {
+                width: "100%",
+                height: "100%"
+            } ], {
+                duration: 1e3,
+                easing: "ease-in",
+                fill: "forwards"
+            } );
+        y.show = function( ) {
+            const n = new Animation( P, document.timeline );
+            return function( ) {
+                return new Promise( t => {
+                    n.addEventListener( "finish", function e( ) {
+                        n.removeEventListener( "finish", e ), t( );
+                    } ), n.play( );
+                } )
+            }
+        }( ), y.hide = function( ) {
+            const n = new Animation( I, document.timeline );
+            return function( ) {
+                return new Promise( t => {
+                    n.addEventListener( "finish", function e( ) {
+                        n.removeEventListener( "finish", e ), t( );
+                    } ), n.play( );
+                } )
+            }
+        }( );
+    }
+    const c = new WebGLRenderer,
+        d = ( c.setSize( a, r ), c.setClearColor( 12571109 ), document.getElementById( "game" ).appendChild( c.domElement ), new Scene ),
+        m = new PerspectiveCamera( 75, a / r, 100, 3e3 ),
+        p = ( m.position.y = 1e3, m.position.x = 2e3, Globals.camera = m, new DirectionalLight ),
+        g = ( d.add( p ), new PMREMGenerator( c ) ),
+        b = {
+            die: !1,
+            board: !1,
+            environment: !1,
+            ran: !1
         },
-        board: null
-    }, g = ( u.load( "../resources/models/die.glb", e => {
+        _ = new GLTFLoader,
+        v = {
+            tokens: {
+                hat: null,
+                iron: null,
+                barrow: null,
+                thimble: null
+            },
+            board: null
+        };
+    async function E( ) {
+        if ( 1 != Globals.players.length ) {
+            for ( const n of Globals.players ) {
+                async function t( e ) {
+                    e == O_BUTTON ? await n.moveForward( await Dice.rollDice( ) ) : ( await n.showStats( ), n.awaitButtonPress( [ O_BUTTON, SQUARE_BUTTON ] ).then( t ) );
+                }
+                n.awaitButtonPress( [ O_BUTTON, SQUARE_BUTTON ] ).then( t );
+            }
+            E( );
+        }
+    }
+    async function k( ) {
+        const e = document.getElementById( "screens" ).children,
+            c = ( e[ 0 ].style.display = "block", await T( 1e3 ), await y.show( ), await new Promise( n => {
+                const o = document.getElementsByClassName( "numButton" );
+
+                function a( e ) {
+                    for ( const t of o ) t.removeEventListener( "click", a );
+                    n( parseInt( e.target.innerHTML ) );
+                }
+                for ( const e of o ) e.addEventListener( "click", a );
+            } ) ),
+            d = ( await y.hide( ), e[ 0 ].style.display = "none", e[ 1 ].style.display = "block", await T( 250 ), await y.show( ), await new Promise( t => {
+                const n = document.getElementById( "nameInput" ),
+                    o = document.getElementById( "submitName" );
+                let a = [ ];
+                o.addEventListener( "click", function e( ) {
+                    a.push( n.value ), a.length == c && ( o.removeEventListener( "click", e ), t( a ) );
+                } );
+            } ) ),
+            m = ( await y.hide( ), e[ 1 ].style.display = "none", e[ 2 ].style.display = "block", await T( 250 ), await y.show( ), await new Promise( t => {
+                let n = 0;
+                const o = [ `Could ${d[0]} please connect their controller`, `Could ${d[1]} please connect their controller`, `Could ${d[2]} please connect their controller`, `Could ${d[3]} please connect their controller` ],
+                    a = document.getElementById( "connectTag" );
+                a.innerHTML = o[ 0 ], window.addEventListener( "gamepadconnected", function e( ) {
+                    ++n == c ? ( window.removeEventListener( "gamepadconnected", e ), t( ) ) : a.innerHTML = o[ n ];
+                } );
+            } ), [ "hat", "iron", "thimble", "barrow" ] ),
+            t = ( await y.hide( ), e[ 2 ].style.display = "none", e[ 3 ].style.display = "block", await T( 250 ), await y.show( ), Globals.players = await new Promise( a => {
+                const i = [ ],
+                    r = Array.from( document.getElementsByClassName( "tokenImage" ) );
+                let s = 0;
+
+                function l( e ) {
+                    const t = e.target;
+                    t.removeEventListener( "click", l ), r.splice( r.indexOf( t ), 1 );
+                    e = t.alt;
+                    if ( m.splice( m.indexOf( e ), 1 ), i.push( new Player( s, d[ s ], v.tokens[ e ] ) ), ++s == c ) {
+                        for ( const n of r ) n.removeEventListener( "click", l );
+                        for ( const o of m ) v.tokens[ o ].visible = !1;
+                        a( i );
+                    }
+                }
+                for ( const e of r ) e.addEventListener( "click", l );
+            } ), await y.hide( ), e[ 3 ].style.display = "none", e[ 4 ].style.display = "block", await T( 250 ), await y.show( ), document.getElementById( "buttonTag" ) );
+        var n = {
+                Circle: O_BUTTON,
+                Triangle: TRIANGLE_BUTTON,
+                Square: SQUARE_BUTTON,
+                X: X_BUTTON
+            },
+            o = Object.keys( n );
+        for ( const i in Globals.players ) {
+            const r = Globals.players[ i ];
+            var a = o[ 4 * Math.random( ) | 0 ];
+            t.innerHTML = `Could ${d[i]} please hit the ${a} button`, await r.awaitButtonPress( n[ a ] );
+        }
+        await y.hide( ), e[ 4 ].style.display = "none", e[ 5 ].style.display = "block", await T( 250 ), await y.show( ), await E( );
+    }
+    _.load( "../resources/models/die.glb", e => {
         Dice.init( );
         const t = e.scene.getObjectByName( "Box001_Material_#25_0" );
-        t.geometry.center( ), d.add( Dice.createDie( t ).getMesh( ) ), d.add( Dice.createDie( ).getMesh( ) );
-    } ), u.load( "../resources/models/board.glb", e => {
+        t.geometry.center( ), d.add( Dice.createDie( t ).getMesh( ) ), d.add( Dice.createDie( ).getMesh( ) ), b.die = !0;
+    } ), _.load( "../resources/models/board.glb", e => {
         const t = [ ];
-        for ( const a of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
-            const r = e.scene.getObjectByName( a );
-            r.geometry.rotateX( -Math.PI / 2 ), r.geometry.rotateY( Math.PI / 2 ), d.add( r ), t.push( r );
+        for ( const o of [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ] ) {
+            const a = e.scene.getObjectByName( o );
+            a.geometry.rotateX( -Math.PI / 2 ), a.geometry.rotateY( Math.PI / 2 ), d.add( a ), t.push( a );
         }
-        b.tokens.hat = t[ 0 ], b.tokens.iron = t[ 1 ], b.tokens.barrow = t[ 2 ], b.tokens.thimble = t[ 3 ], b.tokens.barrow.visible = b.tokens.thimble.visible = !1, m.position.set( 0, 975, 0 ), m.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), b.board = e.scene.getObjectByName( "Board_01_-_Default_0" ), b.board.geometry.rotateX( -Math.PI / 2 ), b.board.position.y = -5, d.add( b.board );
-        const o = e.scene.getObjectByName( "House_07_-_Default_0" );
-        o.geometry.rotateX( -Math.PI / 2 ), o.geometry.scale( 1 / 3, 1 / 3, 1 / 3 ), Globals.houseMesh = new InstancedMesh( o.geometry, o.material, 112 ), Globals.houseMesh.instanceMatrix.setUsage( DynamicDrawUsage ), d.add( Globals.houseMesh );
-    } ), _.onLoad = async function( ) {}, new RGBELoader );
+        v.tokens.hat = t[ 0 ], v.tokens.iron = t[ 1 ], v.tokens.barrow = t[ 2 ], v.tokens.thimble = t[ 3 ], v.tokens.barrow.visible = v.tokens.thimble.visible = !1, m.position.set( 0, 975, 0 ), m.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 ), v.board = e.scene.getObjectByName( "Board_01_-_Default_0" ), v.board.geometry.rotateX( -Math.PI / 2 ), v.board.position.y = -5, d.add( v.board );
+        const n = e.scene.getObjectByName( "House_07_-_Default_0" );
+        n.geometry.rotateX( -Math.PI / 2 ), n.geometry.scale( 1 / 3, 1 / 3, 1 / 3 ), Globals.houseMesh = new InstancedMesh( n.geometry, n.material, 112 ), Globals.houseMesh.instanceMatrix.setUsage( DynamicDrawUsage ), d.add( Globals.houseMesh ), b.board = !0;
+    } );
+    const B = new RGBELoader;
 
-    function p( ) {
-        update( ), Dice.update( ), l.render( d, m ), requestAnimationFrame( p );
+    function L( ) {
+        update( ), Dice.update( ), c.render( d, m ), b.die && b.board && b.environment && !b.ran && ( b.ran = !0, k( ) ), requestAnimationFrame( L );
     }
-    g.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
-        d.environment = h.fromEquirectangular( e ).texture;
-    } ), p( );
+
+    function T( t ) {
+        return new Promise( e => {
+            setTimeout( e, t );
+        } )
+    }
+    B.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( e ) {
+        d.environment = g.fromEquirectangular( e ).texture, b.environment = !0;
+    } ), L( );
 
 } )( );

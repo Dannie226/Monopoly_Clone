@@ -3,7 +3,12 @@ import {
     Easing,
     Tween
 } from "../../libs/tween";
-import { A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON } from "./Buttons";
+import {
+    O_BUTTON,
+    X_BUTTON,
+    TRIANGLE_BUTTON,
+    SQUARE_BUTTON
+} from "./PS4Buttons";
 import {
     Globals
 } from "./Globals";
@@ -44,8 +49,8 @@ export class Player {
     public communityChestCard: useFunction = null;
     public currentPos: number = 0;
     private statsPanel: HTMLDivElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" ) as HTMLDivElement;
-    private header: HTMLHeadingElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "h1") as HTMLHeadingElement;
-    private body: HTMLParagraphElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "p") as HTMLParagraphElement;
+    private header: HTMLHeadingElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "h1" ) as HTMLHeadingElement;
+    private body: HTMLParagraphElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "p" ) as HTMLParagraphElement;
     constructor( id: number, name: string, token: THREE.Mesh ) {
         this.gamepadId = id;
         this.name = name;
@@ -54,16 +59,11 @@ export class Player {
         curve.getPointAt( 0, this.token.position );
         curve.getPointAt( 0.01, v0 );
         this.token.lookAt( v0 );
-        this.statsPanel.appendChild(this.header);
-        this.statsPanel.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "hr"));
-        this.statsPanel.appendChild(this.body);
-        this.statsPanel.style.position = "absolute";
-        this.statsPanel.style.bottom = "150px";
-        this.statsPanel.style.backgroundColor = "white";
-        this.statsPanel.style.width = "100px";
-        this.statsPanel.style.height = "140px";
-        this.hideStats();
-        document.body.appendChild(this.statsPanel);
+        this.statsPanel.appendChild( this.header );
+        this.statsPanel.appendChild( document.createElementNS( "http://www.w3.org/1999/xhtml", "hr" ) );
+        this.statsPanel.appendChild( this.body );
+        this.hideStats( );
+        document.body.appendChild( this.statsPanel );
     }
 
     private getGamepad( ) {
@@ -107,97 +107,99 @@ export class Player {
         return p;
     }
 
-    private baseStats(){
-        this.header.innerHTML = this.name;
-        this.body.innerText = `Money: ${this.money}
+    private async baseStats( ) {
+        const scope = this;
+        scope.header.innerHTML = this.name;
+        scope.body.innerText = `Money: ${this.money}
 Num Properties: ${this.properties.length}
 Properties > A
 Close > Y`;
-        const scope = this;
-        this.awaitButtonPress([A_BUTTON, Y_BUTTON]).then(button => {
-            if(button == A_BUTTON){
-                scope.propertyStats();
-            }else{
-                scope.hideStats();
-            }
-        })
+        const button = await scope.awaitButtonPress( [ O_BUTTON, SQUARE_BUTTON ] )
+        if ( button == O_BUTTON ) {
+            await scope.propertyStats( );
+        } else {
+            scope.hideStats( );
+        }
     }
 
-    private propertyStats(){
+    private async propertyStats( ) {
+
         let propertyId = 0;
         const scope = this;
 
-        function nextProperty(){
+        function nextProperty( ) {
             propertyId++;
-            showProperty();
+            showProperty( );
         }
 
-        function previousProperty(){
+        function previousProperty( ) {
             propertyId--;
-            showProperty();
+            showProperty( );
         }
 
-        function showProperty(){
-            propertyId = THREE.MathUtils.euclideanModulo(propertyId, scope.properties.length);
-            scope.body.innerHTML = scope.properties[propertyId].getPropertyName() + " > A\nBack > Y";
+        function showProperty( ) {
+            propertyId = THREE.MathUtils.euclideanModulo( propertyId, scope.properties.length );
+            scope.body.innerHTML = scope.properties[ propertyId ].getPropertyName( ) + " > A\nBack > Y";
         }
 
-        function onButtonPress(){
-            scope.awaitButtonPress([A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON]).then(button => {
-                if(button == A_BUTTON){
-                    scope.propertyFunctions(propertyId);
-                    return;
-                }else if(button == Y_BUTTON){
-                    scope.baseStats();
-                    return;
-                }else if(button == X_BUTTON){
-                    previousProperty();
-                }else if(button == B_BUTTON){
-                    nextProperty();
-                }
+        async function onButtonPress( ) {
+            const button = await scope.awaitButtonPress( [ O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON ] );
+            if ( button == O_BUTTON ) {
+                await scope.propertyFunctions( propertyId );
+                return;
+            } else if ( button == SQUARE_BUTTON ) {
+                scope.baseStats( );
+                return;
+            } else if ( button == TRIANGLE_BUTTON ) {
+                previousProperty( );
+            } else if ( button == X_BUTTON ) {
+                nextProperty( );
+            }
 
-                onButtonPress();
-            })
+            onButtonPress( );
         }
 
         scope.header.innerHTML = "Properties";
-        onButtonPress();
+        onButtonPress( );
     }
 
-    private propertyFunctions(id:number){
-        const prop = this.properties[id], scope = this;
-        this.header.innerHTML = prop.getPropertyName();
-        this.body.innerText = `Add House > A
-Remove House > B
-${prop.mortgaged ? "Unmortgage" : "Mortgage"} Property > X
-Back > Y`;
-        function onButtonPress(){
-            this.awaitButtonPress([A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON]).then(button => {
-                if(button == A_BUTTON){
-                    prop.addHouse();
-                }else if(button == B_BUTTON){
-                    prop.removeHouse();
-                }else if(button == X_BUTTON){
-                    prop.toggleMortgage();
-                }else{
-                    scope.propertyStats();
+    private propertyFunctions( id: number ): Promise < void > {
+        const prop = this.properties[ id ],
+            scope = this;
+        return new Promise( ( resolve ) => {
+            this.header.innerHTML = prop.getPropertyName( );
+            this.body.innerText = `Add House > A
+    Remove House > B
+    ${prop.mortgaged ? "Unmortgage" : "Mortgage"} Property > X
+    Back > Y`;
+            async function onButtonPress( ) {
+                const button = await scope.awaitButtonPress( [ O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON ] );
+                if ( button == O_BUTTON ) {
+                    prop.addHouse( );
+                } else if ( button == X_BUTTON ) {
+                    prop.removeHouse( );
+                } else if ( button == TRIANGLE_BUTTON ) {
+                    prop.toggleMortgage( );
+                } else {
+                    scope.propertyStats( );
+                    resolve( );
                     return;
                 }
 
-                new Promise((resolve) => {
-                    setTimeout(resolve, 500);
-                }).then(() => {
-                    onButtonPress();
-                })
-            })
-        }
+                new Promise( ( resolve ) => {
+                    setTimeout( resolve, 500 );
+                } ).then( ( ) => {
+                    onButtonPress( );
+                } )
+            }
 
-        onButtonPress();
+            onButtonPress( );
+        } )
     }
 
     updateStats( ) {
-        if(this.money < 0){
-            Globals.players.splice(Globals.players.indexOf(this), 1);
+        if ( this.money < 0 ) {
+            Globals.players.splice( Globals.players.indexOf( this ), 1 );
         }
     }
 
@@ -205,9 +207,9 @@ Back > Y`;
         this.statsPanel.style.display = "none";
     }
 
-    showStats( ) {
+    async showStats( ) {
         this.statsPanel.style.display = "block";
-        this.baseStats();
+        await this.baseStats( );
     }
 
     goToPosition( position: number ): Promise < Player > {
