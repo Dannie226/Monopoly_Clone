@@ -3,6 +3,7 @@ import {
     Easing,
     Tween
 } from "../../libs/tween";
+import { A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON } from "./Buttons";
 import {
     Globals
 } from "./Globals";
@@ -33,7 +34,7 @@ export type useFunction = ( player: Player ) => void;
 export class Player {
     public gamepadId: number;
     public token: THREE.Mesh;
-    public name: String;
+    public name: string;
     public money: number = 1500;
     public propertyCount: number = 0;
     public properties: Property[ ] = [ ];
@@ -43,8 +44,9 @@ export class Player {
     public communityChestCard: useFunction = null;
     public currentPos: number = 0;
     private statsPanel: HTMLDivElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" ) as HTMLDivElement;
-
-    constructor( id: number, name: String, token: THREE.Mesh ) {
+    private header: HTMLHeadingElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "h1") as HTMLHeadingElement;
+    private body: HTMLParagraphElement = document.createElementNS( "http://www.w3.org/1999/xhtml", "p") as HTMLParagraphElement;
+    constructor( id: number, name: string, token: THREE.Mesh ) {
         this.gamepadId = id;
         this.name = name;
         this.statsPanel.className = "stats";
@@ -52,6 +54,16 @@ export class Player {
         curve.getPointAt( 0, this.token.position );
         curve.getPointAt( 0.01, v0 );
         this.token.lookAt( v0 );
+        this.statsPanel.appendChild(this.header);
+        this.statsPanel.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "hr"));
+        this.statsPanel.appendChild(this.body);
+        this.statsPanel.style.position = "absolute";
+        this.statsPanel.style.bottom = "150px";
+        this.statsPanel.style.backgroundColor = "white";
+        this.statsPanel.style.width = "100px";
+        this.statsPanel.style.height = "140px";
+        this.hideStats();
+        document.body.appendChild(this.statsPanel);
     }
 
     private getGamepad( ) {
@@ -95,16 +107,107 @@ export class Player {
         return p;
     }
 
-    updateStats( ) {
+    private baseStats(){
+        this.header.innerHTML = this.name;
+        this.body.innerText = `Money: ${this.money}
+Num Properties: ${this.properties.length}
+Properties > A
+Close > Y`;
+        const scope = this;
+        this.awaitButtonPress([A_BUTTON, Y_BUTTON]).then(button => {
+            if(button == A_BUTTON){
+                scope.propertyStats();
+            }else{
+                scope.hideStats();
+            }
+        })
+    }
 
+    private propertyStats(){
+        let propertyId = 0;
+        const scope = this;
+
+        function nextProperty(){
+            propertyId++;
+            showProperty();
+        }
+
+        function previousProperty(){
+            propertyId--;
+            showProperty();
+        }
+
+        function showProperty(){
+            propertyId = THREE.MathUtils.euclideanModulo(propertyId, scope.properties.length);
+            scope.body.innerHTML = scope.properties[propertyId].getPropertyName() + " > A\nBack > Y";
+        }
+
+        function onButtonPress(){
+            scope.awaitButtonPress([A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON]).then(button => {
+                if(button == A_BUTTON){
+                    scope.propertyFunctions(propertyId);
+                    return;
+                }else if(button == Y_BUTTON){
+                    scope.baseStats();
+                    return;
+                }else if(button == X_BUTTON){
+                    previousProperty();
+                }else if(button == B_BUTTON){
+                    nextProperty();
+                }
+
+                onButtonPress();
+            })
+        }
+
+        scope.header.innerHTML = "Properties";
+        onButtonPress();
+    }
+
+    private propertyFunctions(id:number){
+        const prop = this.properties[id], scope = this;
+        this.header.innerHTML = prop.getPropertyName();
+        this.body.innerText = `Add House > A
+Remove House > B
+${prop.mortgaged ? "Unmortgage" : "Mortgage"} Property > X
+Back > Y`;
+        function onButtonPress(){
+            this.awaitButtonPress([A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON]).then(button => {
+                if(button == A_BUTTON){
+                    prop.addHouse();
+                }else if(button == B_BUTTON){
+                    prop.removeHouse();
+                }else if(button == X_BUTTON){
+                    prop.toggleMortgage();
+                }else{
+                    scope.propertyStats();
+                    return;
+                }
+
+                new Promise((resolve) => {
+                    setTimeout(resolve, 500);
+                }).then(() => {
+                    onButtonPress();
+                })
+            })
+        }
+
+        onButtonPress();
+    }
+
+    updateStats( ) {
+        if(this.money < 0){
+            Globals.players.splice(Globals.players.indexOf(this), 1);
+        }
     }
 
     hideStats( ) {
-
+        this.statsPanel.style.display = "none";
     }
 
     showStats( ) {
-
+        this.statsPanel.style.display = "block";
+        this.baseStats();
     }
 
     goToPosition( position: number ): Promise < Player > {

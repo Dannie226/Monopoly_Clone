@@ -18,6 +18,18 @@ import {
     Tile
 } from "./Tile";
 
+const properties = [
+    "Mediterranean Avenue", "Baltic Avenue", "Reading Railroad", "Oriental Avenue",
+    "Vermont Avenue", "Connecticut Avenue", "St. Charles Place", "Electric Company",
+    "States Avenue", "Virginia Avenue", "Pennsylvania Railroad", "St. James Place",
+    "Tennessee Avenue", "New York Avenue", "Kentucky Avenue", "Indiana Avenue",
+    "Illinois Avenue", "B. & O. Railroad", "Atlantic Avenue","Vetnor Avenue", 
+    "Water Works", "Marvins Gardens", "Pacific Avenue", "North Carolina Avenue",
+    "Pennsylvania Avenue", "Short Line", "Park Place", "Boardwalk"
+];
+
+properties.length
+
 type CostTable = {
     rents: [ number, number, number, number, number ],
     cost: number,
@@ -90,6 +102,18 @@ export class Property implements Tile {
             this.owner.money -= unmortgageCost;
             this.mortgaged = false;
         }
+    }
+
+    toggleMortgage(): void {
+        if(this.mortgaged){
+            this.unmortgage();
+        }else{
+            this.mortgage();
+        }
+    }
+
+    getPropertyName() {
+        return properties[this.instanceId / 4];
     }
 
     addHouse( ): Promise < void > {
