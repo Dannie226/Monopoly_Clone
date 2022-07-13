@@ -19,21 +19,17 @@ export PATH=/usr/local/lib/nodejs/node-v16.15.1-linux-armv7l/bin:$PATH
 
 start_time=$(date +%s.%3N)
 
-run_command "js-beautify -f ./src/ts/**.ts ./src/ts/**/**.ts --config ./.configs/beautify.config.json -r -q" "Beautify TS" 33
+run_command "js-beautify -f ./src/ts/**.ts --config ./.configs/beautify.config.json -r -q" "Beautify TS" 33
 
 run_command "tsc -p ./.configs/tsconfig.json" "Transpilation" 36
 
 run_command "eslint -c ./.configs/.eslintrc.json ./src/js/main.js --fix" "Lint JS" 97
 
-run_command "uglifyjs ./src/js/main.js -c -m toplevel -o ./src/js/main.min.js" "Initial Min" 31
-
 run_command "rollup -c ./.configs/build.config.js --silent" "Bundling" 35
 
 run_command "js-beautify -f ./dist/bundle.js --config ./.configs/beautify.config.json -r -q" "Beautify Bundle" 34
 
-run_command "uglifyjs ./dist/bundle.js -c -m toplevel -o ./dist/bundle.min.js --source-map" "Minify" 32
-
-run_command "echo -e \"\n//# sourceMappingURL=bundle.min.js.map\" >> ./dist/bundle.min.js" "Append Source Map" 91
+run_command "uglifyjs ./dist/bundle.js -c -m toplevel -o ./dist/bundle.min.js --source-map \"url='bundle.min.js.map',root='./'\"" "Minify" 32
 
 end_time=$(date +%s.%3N)
 elapsed=$(echo "$end_time-$start_time" | bc)

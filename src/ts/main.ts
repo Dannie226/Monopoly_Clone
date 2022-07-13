@@ -3,8 +3,8 @@ import {
     GLTFLoader
 } from "three/examples/jsm/loaders/GLTFLoader";
 import {
-    RGBELoader
-} from "three/examples/jsm/loaders/RGBELoader";
+    EXRLoader
+} from "three/examples/jsm/loaders/EXRLoader";
 import * as TWEEN from "../libs/tween";
 import {
     Player
@@ -36,9 +36,7 @@ const animations: {
 };
 
 {
-    const cover = document.createElementNS( "http://www.w3.org/1999/xhtml", "div" ) as HTMLDivElement;
-    cover.className = "cover";
-    cover.style.backgroundColor = "black";
+    const cover = document.getElementsByClassName( "cover" )[ 0 ] as HTMLDivElement;
     document.body.appendChild( cover );
 
     const showEffect = new KeyframeEffect( cover, [ {
@@ -69,35 +67,31 @@ const animations: {
         fill: "forwards"
     } );
 
-    animations.show = ( function( ) {
+    animations.show = function( ) {
         const showAnimation = new Animation( showEffect, document.timeline );
 
-        return function( ) {
-            return new Promise( ( resolve ) => {
-                function onEnd( ) {
-                    showAnimation.removeEventListener( "finish", onEnd );
-                    resolve( );
-                }
-                showAnimation.addEventListener( "finish", onEnd );
-                showAnimation.play( );
-            } );
-        }
-    } )( );
+        return new Promise( ( resolve ) => {
+            function onEnd( ) {
+                showAnimation.removeEventListener( "finish", onEnd );
+                resolve( );
+            }
+            showAnimation.addEventListener( "finish", onEnd );
+            showAnimation.play( );
+        } );
+    }
 
-    animations.hide = ( function( ) {
+    animations.hide = function( ) {
         const hideAnimation = new Animation( hideEffect, document.timeline );
 
-        return function( ) {
-            return new Promise( ( resolve ) => {
-                function onEnd( ) {
-                    hideAnimation.removeEventListener( "finish", onEnd );
-                    resolve( );
-                }
-                hideAnimation.addEventListener( "finish", onEnd );
-                hideAnimation.play( );
-            } );
-        }
-    } )( );
+        return new Promise( ( resolve ) => {
+            function onEnd( ) {
+                hideAnimation.removeEventListener( "finish", onEnd );
+                resolve( );
+            }
+            hideAnimation.addEventListener( "finish", onEnd );
+            hideAnimation.play( );
+        } );
+    }
 }
 
 const renderer = new THREE.WebGLRenderer( );
@@ -237,7 +231,7 @@ async function onLoad( ) {
 
         function onClick( ) {
             names.push( input.value );
-
+            input.value = "";
             if ( names.length == numPlayers ) {
                 button.removeEventListener( "click", onClick );
                 resolve( names );
@@ -252,7 +246,7 @@ async function onLoad( ) {
     screens[ 2 ].style.display = "block";
     await wait( 250 );
     await animations.show( );
-
+    await wait( 500 );
     await new Promise < void > ( ( resolve ) => {
         let controllers = 0;
         const messages = [
@@ -352,8 +346,8 @@ async function onLoad( ) {
     await gameLoop( );
 }
 
-const hdrLoader = new RGBELoader( );
-hdrLoader.load( "https://threejs.org/examples/textures/equirectangular/pedestrian_overpass_1k.hdr", function( texture ) {
+const hdrLoader = new EXRLoader( );
+hdrLoader.load( "../resources/exr/noon_grass_4k.exr", function( texture ) {
     scene.environment = pmrem.fromEquirectangular( texture ).texture;
     loaded.environment = true;
 } )

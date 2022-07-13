@@ -139,7 +139,7 @@ const cards = {
         immediate: true
     },
     bots: {
-        card: "You were found to be betting on boot fights.\n Go to jail, go directly to jail, do not pass go, do not collect $200",
+        card: "You were found to be betting on bot fights.\n Go to jail, go directly to jail, do not pass go, do not collect $200",
         async function( player: Player ) {
             player.inJail = true;
             player.jailTurns = 1;
@@ -154,8 +154,7 @@ export class ChanceTile implements Tile {
         return new Promise( ( resolve ) => {
             //choose card
             const k = Object.keys( cards );
-            // const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
-            const card = cards.advrng;
+            const card = cards[ k[ Math.random( ) * ( k.length - 1 ) | 0 ] ];
 
             const dCard = Card.card;
             if ( !Card.added ) Card.initDOM( );
