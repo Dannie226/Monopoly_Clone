@@ -1,0 +1,5 @@
+{
+    "presets": [
+        "/usr/local/lib/nodejs/node-v16.15.1-linux-armv7l/lib/node_modules/@babel/preset-env"
+    ]
+}
