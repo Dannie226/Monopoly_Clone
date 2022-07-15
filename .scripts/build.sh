@@ -27,11 +27,13 @@ run_command "eslint -c ./.configs/.eslintrc.json ./src/js/main.js --fix" "Lint J
 
 run_command "rollup -c ./.configs/build.config.js --silent" "Bundling" 35
 
-run_command "babel ./dist/bundle.js --out-dir ./dist --config-file ./.configs/babel.config.json --quiet" "Babel" 33
-
 run_command "js-beautify -f ./dist/bundle.js --config ./.configs/beautify.config.json -r -q" "Beautify Bundle" 34
 
-run_command "uglifyjs ./dist/bundle.js -c -m toplevel -o ./dist/bundle.min.js" "Minify" 32
+run_command "uglifyjs ./dist/bundle.js -m toplevel --mangle-props -o ./dist/bundle.min.js" "Mangle" 32
+
+run_command "babel ./dist/bundle.min.js --out-dir ./dist --config-file ./.configs/babel.config.json --quiet" "Babel" 33
+
+run_command "uglifyjs ./dist/bundle.min.js -c -o ./dist/bundle.min.js" "Compress" 31
 
 end_time=$(date +%s.%3N)
 elapsed=$(echo "$end_time-$start_time" | bc)
