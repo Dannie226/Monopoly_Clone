@@ -3,8 +3,8 @@ import {
     GLTFLoader
 } from "three/examples/jsm/loaders/GLTFLoader";
 import {
-    EXRLoader
-} from "three/examples/jsm/loaders/EXRLoader";
+    RGBELoader
+} from "three/examples/jsm/loaders/RGBELoader";
 import * as TWEEN from "../libs/tween";
 import {
     Player
@@ -109,16 +109,8 @@ Globals.camera = camera;
 const dLight = new THREE.DirectionalLight( );
 scene.add( dLight );
 
-const pmrem = new THREE.PMREMGenerator( renderer );
+let loaded = false;
 
-const loaded = {
-    die: false,
-    board: false,
-    environment: false,
-    ran: false
-};
-
-const loader = new GLTFLoader( );
 const assets = {
     tokens: {
         hat: null as THREE.Mesh,
@@ -129,21 +121,34 @@ const assets = {
     board: null as THREE.Mesh
 }
 
-loader.load( "../resources/models/die.glb", ( gltf ) => {
+async function loadAssets( ) {
+    const gltfLoader = new GLTFLoader( );
+    const hdrLoader = new RGBELoader( );
+
+    const gameModel = ( await gltfLoader.loadAsync( "../resources/models/board.glb" ) ).scene;
+    const dieModel = ( await gltfLoader.loadAsync( "../resources/models/die.glb" ) ).scene;
+    const tableModel = ( await gltfLoader.loadAsync( "../resources/models/table.glb" ) ).scene;
+    const background = await hdrLoader.loadAsync( "../resources/hdr/soliltude_2k.hdr" );
+
+    //background/environment
+    const pmrem = new THREE.PMREMGenerator( renderer );
+    scene.environment = pmrem.fromEquirectangular( background ).texture;
+    scene.background = background;
+    scene.background.mapping = THREE.EquirectangularReflectionMapping;
+
+    //dice
     Dice.init( );
-    const dieMesh = gltf.scene.getObjectByName( "Box001_Material_#25_0" ) as THREE.Mesh;
+    const dieMesh = dieModel.getObjectByName( "Box001_Material_#25_0" ) as THREE.Mesh;
     dieMesh.geometry.center( );
     scene.add( Dice.createDie( dieMesh ).getMesh( ) );
     scene.add( Dice.createDie( ).getMesh( ) );
-    loaded.die = true;
-} );
 
-loader.load( "../resources/models/board.glb", ( gltf ) => {
+    //game assets (tokens, board, and houses)
     const names = [ "Top_Hat_09_-_Default_0", "Iron_09_-_Default_0", "Wheel_Barrow_09_-_Default_0", "Thimble_09_-_Default_0" ];
     const tokens: THREE.Mesh[ ] = [ ];
 
     for ( const name of names ) {
-        const o = gltf.scene.getObjectByName( name ) as THREE.Mesh;
+        const o = gameModel.getObjectByName( name ) as THREE.Mesh;
         o.geometry.rotateX( -Math.PI / 2 );
         o.geometry.rotateY( Math.PI / 2 );
         scene.add( o );
@@ -160,13 +165,13 @@ loader.load( "../resources/models/board.glb", ( gltf ) => {
     camera.position.set( 0, 975, 0 );
     camera.quaternion.set( -Math.SQRT1_2, 0, 0, Math.SQRT1_2 );
 
-    assets.board = gltf.scene.getObjectByName( "Board_01_-_Default_0" ) as THREE.Mesh;
+    assets.board = gameModel.getObjectByName( "Board_01_-_Default_0" ) as THREE.Mesh;
     assets.board.geometry.rotateX( -Math.PI / 2 );
     assets.board.position.y = -5;
 
     scene.add( assets.board );
 
-    const house = gltf.scene.getObjectByName( "House_07_-_Default_0" ) as THREE.Mesh;
+    const house = gameModel.getObjectByName( "House_07_-_Default_0" ) as THREE.Mesh;
     house.geometry.rotateX( -Math.PI / 2 );
     house.geometry.scale( 1 / 3, 1 / 3, 1 / 3 );
 
@@ -174,8 +179,14 @@ loader.load( "../resources/models/board.glb", ( gltf ) => {
     Globals.houseMesh.instanceMatrix.setUsage( THREE.DynamicDrawUsage );
     scene.add( Globals.houseMesh );
 
-    loaded.board = true;
-} );
+    //table
+    const s = 1575;
+    tableModel.scale.setScalar( s );
+    tableModel.position.y = -s - 6;
+    scene.add( tableModel );
+
+    loaded = true;
+}
 
 async function gameLoop( ) {
     if ( Globals.players.length == 1 ) return;
@@ -346,25 +357,20 @@ async function onLoad( ) {
     await gameLoop( );
 }
 
-const hdrLoader = new EXRLoader( );
-hdrLoader.load( "../resources/exr/noon_grass_4k.exr", function( texture ) {
-    scene.environment = pmrem.fromEquirectangular( texture ).texture;
-    loaded.environment = true;
-} )
-
 function animate( ) {
     TWEEN.update( );
     Dice.update( );
 
     renderer.render( scene, camera );
 
-    if ( loaded.die && loaded.board && loaded.environment && !loaded.ran ) {
-        loaded.ran = true;
+    if ( loaded ) {
+        loaded = false;
         onLoad( );
     }
 
     requestAnimationFrame( animate );
 }
+loadAssets( );
 animate( );
 
 function wait( ms: number ) {

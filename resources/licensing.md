@@ -5,6 +5,7 @@
 The monopoly board model is where all the tokens, and board came from. The Dice included in this gltf were not accurate to how real dice are made.
 Because of this, I am using a secondary dice model that is accurate (opposite sides add up to 7).  
 The downloaded models were a GLTF, and I bundled them into a GLB.
+Table model was found from [polyhaven models](https://polyhaven.com/models)
 
 ### Monopoly board model:
 ["Monopoly"](https://skfb.ly/6COZv) by Anthony Yanez is licensed under [Creative Commons Attribution](http://creativecommons.org/licenses/by/4.0/).
@@ -12,13 +13,16 @@ The downloaded models were a GLTF, and I bundled them into a GLB.
 ### Die Model:
 ["Dice"](https://sketchfab.com/3d-models/dice-f5df7799760c4452addb66854facffd7) by [Etherlyte](https://sketchfab.com/etherlyte) licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/)
 
+### Table Model:
+1k textures, CC0, Ulan Cabanilla, ["Round Wooden Table 01"](https://polyhaven.com/a/round_wooden_table_01)
 
-## EXR Backgrounds:
+
+## HDR Backgrounds:
 ### Info:
 All the backgrounds are CC0 and found on [polyhaven hdris](https://polyhaven.com/hdris), though I will still be listing some licensing information
 
-### Noon Grass:
-4k hdri, CC0, Greg Zaal, [noon_grass](https://polyhaven.com/a/noon_grass), sumbitted 4 years ago.
+### Soliltude:
+2k hdri, CC0, Andreas Mischock, [soliltude](https://polyhaven.com/a/soliltude).
 
 ## Other Images:
 ### Info:

@@ -3,18 +3,24 @@ import { Easing, Tween } from "../../libs/tween";
 import { O_BUTTON, X_BUTTON, TRIANGLE_BUTTON, SQUARE_BUTTON } from "./PS4Buttons";
 import { Globals } from "./Globals";
 const tilePositions = [
-    0.000, .0333, .0570, .0810, .1046, .1280, .1530, .1767, .2010, .2245, .2550, .2830, .3070, .3300, .3550, .3800, .4030, .4260, .4510, .4750,
-    .5000, .5333, .5570, .5815, .6047, .6290, .6520, .6765, .7000, .7240, .7540, .7820, .8065, .8310, .8550, .8795, .9030, .9265, .9505, .9750
+    .0000, .0310, .0545, .0780, .1015, .1250, .1485, .1720, .1955, .2190,
+    .2500, .2810, .3045, .3280, .3515, .3750, .3985, .4220, .4455, .4690,
+    .5000, .5310, .5545, .5780, .6015, .6250, .6485, .6720, .6955, .7190,
+    .7500, .7810, .8045, .8280, .8515, .8750, .8985, .9220, .9455, .9690
 ];
 const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(625, 0, 600),
-    new THREE.Vector3(600, 0, 625),
-    new THREE.Vector3(-600, 0, 625),
-    new THREE.Vector3(-625, 0, 600),
-    new THREE.Vector3(-625, 0, -600),
-    new THREE.Vector3(-600, 0, -625),
-    new THREE.Vector3(600, 0, -625),
-    new THREE.Vector3(625, 0, -600)
+    new THREE.Vector3(625, 0, 625),
+    new THREE.Vector3(562.5, 0, 625),
+    new THREE.Vector3(-562.5, 0, 625),
+    new THREE.Vector3(-625, 0, 625),
+    new THREE.Vector3(-625, 0, 562.5),
+    new THREE.Vector3(-625, 0, -562.5),
+    new THREE.Vector3(-625, 0, -625),
+    new THREE.Vector3(-562.5, 0, -625),
+    new THREE.Vector3(562.5, 0, -625),
+    new THREE.Vector3(625, 0, -625),
+    new THREE.Vector3(625, 0, -562.5),
+    new THREE.Vector3(625, 0, 562.5),
 ], true);
 const v0 = new THREE.Vector3();
 export class Player {
