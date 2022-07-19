@@ -4,13 +4,13 @@
             "type":"shell",
             "group": "build",
             "label":"Production Build Project",
-            "command":"bash ./.scripts/build.sh"
+            "command":"node ./.tasks/build.js"
         },
         {
             "type":"shell",
             "group": "build",
             "label":"Development Build Project",
-            "command":"bash ./.scripts/dev.sh"
+            "command":"node ./.tasks/dev.js"
         }
     ],
     "version": "2.0.0"

@@ -1,4 +1,5 @@
 import resolve from "@rollup/plugin-node-resolve";
+
 export default {
     input:"src/js/main.js",
     output:{
@@ -6,7 +7,5 @@ export default {
         format:"iife",
         sourcemap:"inline"
     },
-    plugins:[
-        resolve(),
-    ]
+    plugins:[resolve()]
 }
